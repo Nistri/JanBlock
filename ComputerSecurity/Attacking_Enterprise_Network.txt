@@ -1,0 +1,75 @@
+Attacking Enterprise Network:
+
+External Testing:
+1. External Information Gathering:
+- Wir starten mit einem nmap Scan um ein Ueberblick ueber das System zu bekommen
+- Anschliessend koennen wir DNS Informationen einholen mit dig
+- https://dnsdumpster.com/ ist ebenso hilfreich
+
+- Mit curl -s -I <URL> -H "HOST: defnotvalid.<Domain>" | grep "Content-Length:" Die Content-Length einholen
+- ffuf -w namelist.txt:FUZZ -u <URL> -H 'Host:FUZZ.<Domain>' -fs <Content-Length>
+- Wir koennne alle Subdomainen und vhosts zum /etc/hosts hinzufuegen
+
+2. Service Enumeration & Exploitation:
+- FTP:
+	- Wenn der FTP Port 21 geoffnet ist koennen wird den FTP Dienst enumerieren
+	- Mit ftp <IP> einloggen
+	- Wir koennen versuchen uns mit dem User anonymous einzuloggen
+
+- SSH:
+	- Mit nc -nv <IP> 22 das Banner des Dienstes abfangen
+	- ssh <user>@<IP>
+
+- Email Services:	
+	- Wir koennen Tools wie MXToolBox verwneden um Email Services zu enumerieren
+	- Ebenso koenenn wir dig verwenden um MX(mail exchange) Records anzuzeigen
+	- sudo nmap -sV -sC -p25,110 <IP> um POP3 und SMTP zu enumerieren
+	- telnet <IP> <PORT(25/110)>
+
+- RPC:
+	- Wenn es einen Port gibt auf dem RPC laeuft koennen wir mit rpcinfo <IP> Informationen ueber diesen RPC einholen
+
+3. Web Enumeration & Exploitation:
+- In einer WASA(Web Application Security Assessment) dokumentieren wir alle Schwachstellen
+- In einem Externla Penetration Test dokumentieren wir nur die schweren Schwachstellen der Web Anwendung
+
+- Web Application Enumeration:
+	- Wir koennen EyeWitness verwenden um Screenshots von einer Web Anwendung zu machen
+	- Hierfuer benoetigen wir eine Liste an Subdomainen
+	- eyewitness -f <Subdomain_List> -d <Output_Verzeichnis>
+	- Jetzt koennen wir Screenshots und HTML Headers von Subdomainen finden
+
+	- Insecure Direct Object Reference (IDOR):
+		- Wenn wir ein Account erstellen koennen sollten wir einen erstellen
+		- Wenn wir ein Account erstellt haben koennen eventuell auf andere Ressourcen von anderen User zugreifen
+
+	- HTTP Verb Tampering:
+		- Bei HTTP Verb Tampering koennen wir HTTP Verben wie POST,GET, DELETE usw. verwenden um Befehle auf dem Server auszufuehren
+		- Dies kann mit Burp Suite funktionieren
+
+	- Local File Inclusion (LFI):
+		- Eine Datei hochladen um Zugriff auf den Server zu bekommen
+
+	- SQL Injection:
+		- Hier kann boesartiger SQL Code eingeschoben werden um mehr Informationen zu bekommen
+		- Hiefuer koennen wir sqlmap verwenden
+
+	- Cross-Site Scripting (XSS):
+		- Durch eine Luecke kann schadhafter JavaScript Code eingefuegt werden
+		- Es gibt 3 Arten von XSS Angriffen
+		- Einen der in dem Server gespeichert wird, der nicht auf dem Server gespeichert wird und den letzten der DOM(Document Object Model) manipuliert
+
+	- XML External Entity(XXE):
+		- Bei einem XXE-Angriff kann ein Angreifer bösartige externe Entitäten in XML-Dokumente einschleusen
+
+	- Command Injection:
+		- Command Injection ist eine Art von Sicherheitslücke, die in Anwendungen auftreten kann, die Benutzereingaben in Befehlen oder Systemaufrufen verwenden, ohne ausreichende Validierung oder Absicherung
+
+	- 
+
+
+
+4. Initial Access:
+
+
+###################################################################################################

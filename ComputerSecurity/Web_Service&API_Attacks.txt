@@ -1,0 +1,29 @@
+Web Service & API Attacks:
+
+Web Service & API Fundamentals:
+1. Introduction to Web Services and APIs:
+- APIs sind Regeln wie Daten zwischen Anwendungen ausgetauscht werden koennen
+
+- Web Service vs. API:
+	- Web Services verwenden XML um Daten zu transportieren
+	- API verwenden viele Format unter anderem JSON
+
+2. Web Services Description Language(WSDL):
+- WSDL Datein bestehen aus mehreren Elementen(https://www.w3.org/TR/2001/NOTE-wsdl-20010315)
+
+##################################################################
+Web Service Attacks:
+1. SOAPAction Spoofing:
+- SOAP Nachrichten sollten die Operation und den zugehoerigen Parameter enthalten
+- 
+
+
+2. Command Injection:
+- 
+
+
+3. Attacking Wordpress 'xmlrpc.php':
+- 
+
+
+##################################################################

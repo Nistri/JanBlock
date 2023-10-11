@@ -1,0 +1,219 @@
+Using Web Proxies
+Getting Started
+1. Intro to Web Proxis:
+- Die meisten Web Anwendungen senden und empfangen Daten von einem Server 
+- Um die Daten zwischen Server und Client abzufangen und zu untersuchen koennen wir einen Web Proxy verwenden
+
+- What Are Web Proxies?:
+	- Web Proxies fangen den Traffic zwischen zwei Netzwerk Endpunkten ab und analysiert den Inhalt des Traffics
+	- Network Sniffing Anwendungen wie Wireshark sammeln den gesamten lokalen Traffic im Netzwerk
+
+- Burp Suite:
+	- Burp Suite(https://portswigger.net/burp) hat einen eingebauten Chromium Browser
+	- Mit Burp Suite koennen wir Traffic anlysieren
+
+- OWASP Zed Attack Proxy(ZAP):
+	- ZAP(https://www.zaproxy.org/) ist ein anderes Tool um Traffic zu analysieren
+
+#############################################################################################
+Web Proxy
+1. Proxy Setup:
+- Wir koennen im Browser einen Proxy einstellen
+- In Burpsuite koenen in Proxy->Intercept auf Open Browser klicken und damit den Burp Browser oeffnen
+
+- Proxy Setup:
+	- Wenn wir Google Chrome oder Firefox verwenden wollen muessen wir in diesem Browser die Proxy Einstellungen aendern
+	- Burpsuite und ZAP verwenden beide standardmaessig den Port 8080 der Port kannaber auch beliebig geaendert werden fuer Burp unter Proxy->Options und fuer ZAP unter Tools->Options->Local Proxies
+	- Wir koennen in Firefox die Erweiterung Foxy Proxy verwenden um schnell den Proxy zu aendern
+
+- Installing CA Certificate:
+	- Wenn wir HTTPS Traffic richtig routen wollen muessen wir CA Zertifikate importieren
+	- Wenn wir unter Foxy Proxy unseren Proxy eingestellt haben koennen wir http://burp aufrufen um dort das CA Zertifikat runterzuladen
+	- ZAP CA Zertifikat importieren: Tools->Options->Dynamic SSL Certificate
+
+2. Intercepting Web Request:
+- Intercepting Requests:
+	- Burp:
+		- Wir gehen zum Proxy Tab unter dem Intercept Tab klicken wir Intercept is on/off Button
+		- Wenn wir auf Forward klicken koennen wir die naechste Anfrage behandeln
+
+- Manipulating Intercepted Requests:
+	- Wir koennen die Anfrage manipulieren und sie danach weiterleiten
+
+- Question:
+	- ip;cat flag.txt;
+
+3. Intercepting Respondes:
+- Manchmal muessen wir den Traffic abfangen bevor dieser den Browser erreicht, um eventuell unsichtbare Felder darzustellen
+
+- Burp:
+	- Wir koennen response interception aktivieren fuer Proxy->Options und Intercept Response unter Intercept Server Respondes aktivieren
+
+4. Automatic Modification:
+- Manchmal muessen wir ausgehenden/eingehenden HTTP Anfragen modifizieren
+- Diese Modifizierungen koennen wir automatisieren
+
+- Automatic Request/Response Modification:
+	- Wir koennen nach einem String in der Anfrage suchen und diese mit einem anderen String ersetzen
+	- Burp:
+		- Proxy->Options->Match and Replace und auf Add klicken
+		- Im Type Feld fuer Request "Request header" und fuer Response "Response body" eigeben
+
+5. Repeating Requests:
+- Wenn wir den gleichen Prozess mehrmals ausgeben wollen muessen wir nicht immer die uns durch die vorgeladenen Seiten durchklicken sondern koennen request repeating verwenden
+
+- Proxy History:
+	- In Burp koennen wir unter Proxy->HTTP History die HTTP History einsehen
+
+- Repeating Requests:
+	- Burp:
+		- Wenn wir in der HTTP History den Request sehen und diesen zum Repeater Tab schieben
+		- Im Repeater Tab koennen wir auf Send klicken um den Request zu senden
+
+6. Encoding/Decoding:
+- Wir koennne HTTP requests encoden oder decoden um mit einem Server zu interagieren
+
+- URL Encoding:
+	- Es ist wichtig auf das richtige URL-encoding zu achten
+	- Manche Zeichen muessen encoded sein:
+		- Space: Ende von Request Data
+		- &: Wird als Paraemter interpretiert
+		- #: Wird als Fragment interpretiert
+	- In Burp Repeater koenen wir Text URL-encoden
+	- In Burp auf den Text rechts klicken und auf Selection->URL->URL encode key characters
+
+- Decoding:
+	- Haeuft decoden Webanwendungen ihren Traffic heisst
+	- In Burp unter dem Tab Decoder koennen wir Input Decoden oder Encoden
+
+- Encoding:
+	- Um Daten zu senden muessen wir dann auch wieder die Daten encoden
+	- Dies koennen wir auch wieder im Decoder machen
+
+- Question:
+	- 4x base64 -> ASCII hex -> Binary-> remove '%'
+
+7. Proxying Tools:
+- Manchmal muessen wir den Traffic von Webanwendungen an den Proxy weiterleiten
+
+- Proxychans:
+	- Ein Tool hierfuer ist proxychains hiermit kann der Traffic umgeleitet werden
+	- Die Konfigurationsdatei fuer proxychains wird in /etc/proxychains.conf gespeichert
+
+- Nmap:
+	- Mit Nmap kann auch Traffic umgeleitet werden
+	- Mit der Option --proxies kann der der Traffic umgeleitet werden
+	- -Pn ueberspring Host Discovery
+	- nmap --proxies http://127.0.0.1:8080 SERVER_IP -pPORT -Pn
+
+- Metasploit:
+	- In Metasploit gibt es ebenfalls ein proxy Modul
+	- In Metasploit koennen wir einen Proxy mit dem Flag PROXIES setzen
+
+#############################################################################################
+Web Fuzzer
+1. Burp Intruder:
+- Zwei eingebaute Features die wichtig fuer Web Pentesting ist sind web fuzzers und web scanners
+- Web Fuzzers ist ein Tool fuer Web fuzzing, Enumeration und Bruteforcing Tools
+- Web Fuzzers ist eine Alternative fuer Tools wie ffuf, dirbuster, gobuster, wfuzz usw
+- Burp Intruder ist der Web Fuzzer von Burp
+
+- Target:
+	- Browser oeffnen und Traffic abfangen und an den Intruder senden
+	- Im Tab Target koennen wir das Target festlegen
+
+- Positions:
+	- Im Tab Positions platzieren wir den Payload Position Pointer
+	- Das Payload sollte GET /DIRECTORY/ sein
+	- DIRECTORY ist ein Pointer zu einem Wortliste die darueber ausgewaehlt werden kann
+
+- Payloads:
+	- Im 3 Tab weren wir die Payload/Wortliste konfigurieren
+	- Der Payload wird bei dem Fuzzing/Enumerierung verwendet
+	- Es gibt 4 Optionen zu konfigurieren
+	- Payload Sets:
+		- Hier geben wir die Einstellungen fuer den Payload ein wie um Listentyp und Listenset
+	- Payload Options:
+		- In Options muessen wir unsere Wortliste einfuegen
+	- Payload Processing:
+		- In Processing koennen wir die Fuzzing Rules fuer eine Wortliste erstellen
+		- Hier koennen wir angeben ob wir die Liste filtern wollen
+	- Payload Encoding:
+		- Hier koennen wir festlegen welche Zeichen encoded werden
+
+- Options:
+	- Hier koennen wir die Anzahl von Wiederholungen usw festlegen
+	- Wir koennen definieren was als Erfolg gespeichert wird wie eine 200 OK HTTP Code
+
+- Attack:
+	- Mit Start Attack starten wir den Angriff
+
+2. ZAP Fuzzer:
+- ZAP hat ebenso einen Fuzzer ist ein maechtiges Fuzzing Tool fuer Webend Punkte
+
+- Fuzz:
+	- Um den Fuzzer zu starten oeffnen wir den Browser geben die IP-Adresse ein um
+	- Um Fuzz zu oeffnen Rechtsklick auf den Request und Attack->Fuzz klicken
+	- Es gibt 4 Optionen die wird konfigurieren muessen:
+		- Fuzz Location:
+			- Hier wird festgelegt wo unsere Payload ausgefuehrt wird
+		- Payloads:
+			- Hier geben wir unseren Payload/Wortliste an
+		- Processors:
+			- Hier koennen wir die Art von Encoding angeben
+		- Options:
+			- Hier koennen wir Optionen wie Parallele Threads usw angeben
+		- Star:
+			- Mit Start Fuzzer starten wir den ZAP Fuzzer
+
+#############################################################################################
+Web Scanner
+1. Burp Scanner:
+- Burp Scanner ist ein maechtiger Scanner fuer Web Schwachstellen
+- Burp Scanner ist nur in der Pro Version verfuegbar
+
+- Target Scope:
+	- Rechtsklick auf einen Request und Scan klicken um einen Passiven/Aktiven Scan zu starten
+	- Mit New Scan auf dem Dashboard koennen wir einen Scan ausfuehren und diesen nach unseren belieben konfigurieren
+	- Wenn wir Target->Site Map oeffnen sehen wir alle gefundenen Verzeichnisse
+
+- Crawler:
+	- Wenn wir unseren Scope erstellt haben koennen wir auf dem Dashboard ein neuen Scan konfigurieren
+	- Wir koennne Crawel und Crawl and Autid auswaehlen:
+
+2. ZAP Scanner:
+- ZAP kommt mit einem Web Scanner
+- Der ZAP Web Scanner kann eine Karte auf einer Website erstellen
+
+- Spider:
+	- ZAP Spider kann gestartet werden indem auf man Rechtklick auf einem Request klickt und Attack->Spider auswaehlt
+	- Spider kann ausserdem mit Spider Start gestartet werden
+
+- Passive Scanner:
+	- ZAP Spieder fuehrt einen passiven Scan durch und sucht nach Schwachstellen wie XSS Schwachstellen
+
+- Active Scanner:
+	- Wenn der Baum mit den Verzeichnissen gefuellt ist koennen wir einen aktiven Scan durchfuehren
+
+- Reporting:
+	- ZAP kann einen Report automatisch generieren mit Report-> Generate HTML Report
+
+3. Extensions:
+- In Burp und ZAP koennen Extensions installiert werden
+- In Burp heisst der Store BApp Store fuer ZAP heist dieser Store ZAP Marketplace
+
+#############################################################################################
+Skill Assessment:
+1. Skills Assessment - Using Web Proxies:
+- 1. lucky.php abfangen disable loeschen und Website reloaden
+- 2. From Hex -> From Base64
+- 3. Cookie: PHPSESSID=p2istlh4q2bdtoauav74uko5gn; cookie=§a§
+	 Payload: alphanum-case.txt
+	 Payload Processing: Add Prefix: MD5 Hash
+	 					 Base64 Encode
+	 					 Encode as ASCII hex
+- msfconsole
+	- set PROXIES HTTP:127.0.0.1:8080
+	- set RHOST IP
+	- set RPORT Port
+	- run

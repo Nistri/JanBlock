@@ -1,0 +1,30 @@
+Kepper : 10.10.11.227
+
+
+nmap -sV -sV 10.10.11.227    
+Starting Nmap 7.94 ( https://nmap.org ) at 2023-08-28 09:16 EDT
+Nmap scan report for 10.10.11.227
+Host is up (0.092s latency).
+Not shown: 998 closed tcp ports (conn-refused)
+PORT   STATE SERVICE VERSION
+22/tcp open  ssh     OpenSSH 8.9p1 Ubuntu 3ubuntu0.3 (Ubuntu Linux; protocol 2.0)
+80/tcp open  http    nginx 1.18.0 (Ubuntu)
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 10.25 seconds
+
+
+Nach request Tracker suchen:
+Username: root
+Password: password
+
+
+Username: lnorgaard
+Password: Welcome2023!
+
+ssh lnorgaard@10.10.11.227
+
+
+root:
+F4><3K0nd!

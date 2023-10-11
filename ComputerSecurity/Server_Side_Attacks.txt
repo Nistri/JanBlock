@@ -1,0 +1,82 @@
+Server-Side Attacks
+
+Introduction to Server-Side Attacks:
+- Server-Side Request Forgery(SSRF) manipuliert die Website damit sie auf externe Daten zugreift
+- Server-Side Includes Injection(SSI) durch eine Eingabe auf der Website koennen Daten zugegriffen werden
+
+######################################################################
+Abusing Intermediary Applications:
+1. AJP Proxy:
+- AJP ist ein Protkoll welches das HTTP Protkoll verwendet damit Standalone Web Server wie Apache mit Tomcat kommunizieren kann
+- AJP Proxy ist der 8009 TCP Port
+
+2. Nginx Reverse Proxy & AJP:
+- Wen wir auf einen Nginx Server mit offenem 8009 Port koennen wir auf den Nginx Manager zugreifen
+- Die Version des Nginx Servers steht immer in der Index HTML Seite
+
+3. Apache Reverse Proxy & AJP:
+- Ebenso ist dies moeglich auf die Apache hidden Tomcat Pages zuzugreifen
+
+######################################################################
+Server-Side Request Forgery(SSRF):
+1. Server-Side Request Forgery (SSRF) Overview:
+- Mit SSRF koennen wir Anfragen auf dem Server manipulieren um auf interne oder externe Ressourcen zugreifen zukoennen.
+
+2. SSRF Exploitation Example:
+- Beispiel eines SSRF Exploits
+
+3. Blind SSRF:
+- Blind SSRF Schwachstellen senden keine Antwort vom Server zurueck deswegen sind sie schwierig zu exploiten und zu entdecken
+
+4. Blind SSRF Exploitation Example:
+- Ein Beispiel Blind SSRF
+
+5. Time-Based SSRF:
+- Bei einer blind SSRF koennen wir diese Schwachstelle erkenenn indem die Zeit der Anfrage beobachtet wird
+
+######################################################################
+Server-Side Includes (SSI) Injection:
+1. Server-Side Includes Overview:
+- Includes werden von Websiten verwendet um Dynamisch Content in HTML Seiten zu laden
+- Dies kann man ueberpruefen indem Endungen wie .shtml, .shtm, .stm, usw.
+
+2. SSI Injection Exploitation Example:
+- Beispiel fuer SSI
+
+######################################################################
+Edge-Side Includes (ESI) Injection
+1. Edge-Side Includes (ESI):
+- ESI ist eine auf XML basierende Markup Sprache die Caching fuer Web content erlaubt
+- ESI ermoeglicht die Speicherung von Web Content auf den Enden des Netzwerks wie Browser des Users, Content Delivery Network usw.
+- ESI tags werden verwendet um HTTP zu instruieren wo Informationen abrufbar sind
+- Beispiel: <esi: include src=http://<PENTESTER IP>>
+
+######################################################################
+Server-Side Template Injections(SSTI)
+1. Introduction to Template Engines:
+- Template engines rendern Template Dokumente als Dokument
+
+2. SSTI Identification:
+- Der einfachste Weg eine SSTI Schwachstelle zu finden ist es Mathematische Ausdruecke einzugeben wie: {7*7}, ${7*7}, #{7*7}, %{7*7}, {{7*7}}
+
+3. SSTI Exploitation Example 1:
+- Beispiel
+
+4. SSTI Exploitation Example 2:
+- Beispiel
+
+5. SSTI Exploitation Example 3:
+- Beispiel
+
+######################################################################
+Extensible Stylesheet Language Transformations Server-Side Injections
+1. Attacking XSLT:
+- 
+
+######################################################################
+Skills Assessment
+1. Server-Side Attacks - Skills Assessment:
+- 
+
+
+

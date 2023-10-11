@@ -1,0 +1,117 @@
+Attacking Common Applications
+
+Setting the Stage
+1. Introduction to Attacking Common Applications:
+- Alle Arten von Web-Anwendungen vorgestellt
+- nano /etc/hosts
+	- <IP> <Hosts_Liste>
+
+2. Application Discovery & Enumeration:
+- Nmap:
+	- nmap -p <Port> --open -oA <Output_File> -iL <Liste_mit_IPs>
+	- Fuer mehr Informationen:
+		- nmap --open -sV <IP>
+
+- EyeWitness:
+	- EyeWitness verwendet den XML Output von Nmap und erstellt ein Output
+	- EyeWitness Fingerprinted die Anwendungen die auf den IPs laufen und probiert die Standardcredentials aus
+	- eyewitness --web -x <XML_Output_File> -d <Speicherort>
+
+- Results:
+	- Die Ausgabe koennen nach high value targets gefiltert werden
+
+###################################################################################################
+Content Management Systems(CMS)
+1. WordPress - Discovery & Enumeration:
+- WordPress ist in PHP geschrieben und wird meistens auf Apache und MySQL ausgefuehrt
+- Ist ein Content Management System wird oft fuer Blogs oder Foren verwendet
+
+- Discovery/Footprinting:
+	- Der schnellste Weg rauszufinden ob eine Seite auf WordPress aufgebaut ist, ist robots.txt
+	- WordPress speichert Plugins in wp-content/plugins
+	- WordPress speichert Themes in wp-content/themes
+	- Plugins und Themes koennten Schwachstellen enthalten
+	- Folgende User sind vorhanden:
+		- Admin: User erzeugen, aendern, loeschen, Posts verwalten
+		- Editor: verwaltet, erzeugt und stellt Posts ein
+		- Author: verwaltet, erzeugt und stellt eigenen Post ein
+		- Contributor: Erzeugt und verwaltet eigene Posts
+		- Subscibor: Koennen Posts ansehen und ihr Profil aendern
+
+- Enumeration:
+	- Mit Curl koennen wir uns die Website ausgeben und mit grep nach WordPress suchen
+	- curl -s <URL> | grep WordPress
+	- Das gleiche kann mit themes oder plugins gemacht werden
+		- curl -s <URL> | grep themes/plugins
+
+- Enumerating Users:
+	- Die standardlogin Seite befindetr sich unter /wp-login.php
+	- Wenn der User nicht gefunden wird gibt es user was not found zurueck
+
+- WPScan:
+	- WPScan ist ein automatisierter Scanner
+	- Gibt die Themes und Plugins aus mit Schwachstellen
+	- sudo gem install wpscan
+	- Um auf Informationen von externen Quellen zuzugreifen koennen wir --api-token verwenden
+	- Ein Konto auf WPVulnDB erstellen und dann den API Token kopieren
+	- Mit --enumerate koennen wir die verschiedenen Komponenten enumerieren
+	- Alle Plugins koennen mit --enumerate ap enumeriert werden
+	- 
+
+
+
+
+2. Atticking WordPress:
+3. Joomla - Discovery & Enumeration:
+4. Attacking Joomla:
+5. Drupal - Discovery & Enumeration:
+6. Attacking Drupal:
+
+###################################################################################################
+Servlet Containers/Software Development
+1. 
+2. 
+3. 
+4. 
+
+###################################################################################################
+Infrastructure/Network Monitoring Tools
+1. 
+2. 
+3. 
+
+###################################################################################################
+Customer Service Mgmt & Configuration Management
+1. 
+2. 
+3. 
+
+###################################################################################################
+Common Gateway Interfaces
+1. 
+2. 
+
+###################################################################################################
+Thick Client Applications
+1. 
+2. 
+
+###################################################################################################
+Miscellaneous Applications
+1. 
+2. 
+3. 
+4. 
+5. 
+6. 
+7. 
+
+###################################################################################################
+Closing Out
+1. 
+
+###################################################################################################
+Skills Assessments
+1. 
+2. 
+3. 

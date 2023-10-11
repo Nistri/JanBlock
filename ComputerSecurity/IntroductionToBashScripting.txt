@@ -1,0 +1,227 @@
+Introduction to Bash Scripting
+
+Introduction:
+1. Bourne Again Shell:
+- Bash ist eine Scritpign Sprache fuer Unix basierte Betriebssysteme
+- Ein Script erstellt kein Prozess sondern exekutiert nur ein Script
+
+- Ausfueherung:
+	- bash script.sh <optional arguments>
+	- sh script.sh <optional arguments>
+	- ./script.sh <optional arguments>
+	- Die optionalen Argumente koennen als Input im Programm verwendet werden
+
+##############################################################################################
+Working Components
+1. Conditional Execution:
+- $#/$0/$1/... sind die speziellen Variablen
+- $# steht fuer die Eingabelaenge
+
+- Shebang:
+	- Die erste Zeile eines Scripts ist immer Shebang
+	- #!/usr/bin/env python
+	- #!/usr/bin/env perl
+	- #!/bin/bash
+
+- If-Else-Fi:
+	- if [ Variable Vergleich Wert ]
+	then 
+		Anweisung
+	else
+
+- Frage:
+#!/bin/bash
+# Count number of characters in a variable:
+#     echo $variable | wc -c
+
+# Variable to encode
+var="nef892na9s1p9asn2aJs71nIsm"
+
+for counter in {1..40}
+do
+        var=$(echo $var | base64)
+        if [ $counter -eq 35 ]
+        then
+                echo $var | wc -c
+        fi
+done
+
+2. Arguments, Variables and Arrays
+- Arguments:
+	- Bis zu 9 Argumente koennen an das Script weitergegeben werden koennen
+	- Im Script koennen auf diese Argumente mit $ zugegriffen werden
+	- Mit $1, $2, ... usw
+
+- Special Variables:
+	- $# : Speichert die Anzahl an Argumenten
+	- $$ : Ist die ProzessID
+	- $@ : Gibt die Argumentenliste zurueck
+
+- Variables:
+	- Variabelname = Wert
+
+- Arrays:
+	- Im Array werden Elemente mit Leerzeichen getrennt
+	- domains=(www com vpn www2)
+	- echo ${domains[0]} Gibt www aus
+
+
+3. Comparison Operators:
+	- Es sind verschiedene Vergleichsoperatoren verfuegbar
+	- String Operators:
+		- == Gleich
+		- != Ungleich
+		- < Kleiner als 
+		- > Groesser als
+		- -z String ist null
+		- -n String is nicht null
+
+- Integer Operators:
+	- -eq Gleich
+	- -ne Ungleich
+	- -lt Kleiner als
+	- -le Kleiner oder gleich
+	- -gt Groesser als
+	- -ge Groesser oder gleich
+
+- Logical Operators:
+	- ! Logisches NOT
+	- && Logisches AND
+	- || Logisches OR
+
+- Frage:
+#!/bin/bash
+
+var="8dm7KsjU28B7v621Jls"
+value="ERmFRMVZ0U2paTlJYTkxDZz09Cg"
+
+for i in {1..40}
+do
+        var=$(echo $var | base64)
+        if [[ "$var" =~ "$value" && ${#var} -eq 113469 ]];
+        then
+                echo $var | tail -c 20
+        fi
+done
+
+4. Arithmetic:
+- Es gibt aritmetische Parameter wie +.-,*,/ usw
+- Variablen laenge mit echo ${#htb} ausgeben
+
+##############################################################################################
+Script Control:
+1. Input and Output Control:
+- Wir koennen tee verwenden um in die Standardausgabe und -eingabe zu schreiben
+
+2. Flow Control - Loops:
+- Wir koennen das Programm kontrollieren mit braches wie if-else/case oder mit Loops wie for/while/until
+- For Loops:
+	- For Loops setzten eine Variable gleich einer liste in einer Schleife
+	for ip in "10.10.10.174 10.10.10.175"
+	do
+		ping -c 1 $ip
+	done
+
+- While Loops:
+	- Solange eine Variable eine Bedingung erfuellt wird die Schleife durchlaufen
+	while [ $counter -lt 10 ]
+	do
+		echo "Hallo"
+	done
+
+- Until Loops:
+	- Die Schleife wird durchlaufen solange die Bedingung falsch ist
+
+- Frage:
+#!/bin/bash
+
+# Decrypt function
+function decrypt {
+        MzSaas7k=$(echo $hash | sed 's/988sn1/83unasa/g')
+        Mzns7293sk=$(echo $MzSaas7k | sed 's/4d298d/9999/g')
+        MzSaas7k=$(echo $Mzns7293sk | sed 's/3i8dqos82/873h4d/g')
+        Mzns7293sk=$(echo $MzSaas7k | sed 's/4n9Ls/20X/g')
+        MzSaas7k=$(echo $Mzns7293sk | sed 's/912oijs01/i7gg/g')
+        Mzns7293sk=$(echo $MzSaas7k | sed 's/k32jx0aa/n391s/g')
+        MzSaas7k=$(echo $Mzns7293sk | sed 's/nI72n/YzF1/g')
+        Mzns7293sk=$(echo $MzSaas7k | sed 's/82ns71n/2d49/g')
+        MzSaas7k=$(echo $Mzns7293sk | sed 's/JGcms1a/zIm12/g')
+        Mzns7293sk=$(echo $MzSaas7k | sed 's/MS9/4SIs/g')
+        MzSaas7k=$(echo $Mzns7293sk | sed 's/Ymxj00Ims/Uso18/g')
+        Mzns7293sk=$(echo $MzSaas7k | sed 's/sSi8Lm/Mit/g')
+        MzSaas7k=$(echo $Mzns7293sk | sed 's/9su2n/43n92ka/g')
+        Mzns7293sk=$(echo $MzSaas7k | sed 's/ggf3iunds/dn3i8/g')
+        MzSaas7k=$(echo $Mzns7293sk | sed 's/uBz/TT0K/g')
+
+        flag=$(echo $MzSaas7k | base64 -d | openssl enc -aes-128-cbc -a -d -salt -pass pass:$salt)
+}
+
+# Variables
+var="9M"
+salt=""
+hash="VTJGc2RHVmtYMTl2ZnYyNTdUeERVRnBtQWVGNmFWWVUySG1wTXNmRi9rQT0K"
+
+# Base64 Encoding Example:
+#        $ echo "Some Text" | base64
+
+for i in {1..28}
+do
+        var=$(echo $var | base64)
+done
+
+salt=$(( ${#var} + 1  ))
+
+# Check if $salt is empty
+if [[ ! -z "$salt" ]]
+then
+        decrypt
+        echo $flag
+else
+        exit 1
+fi
+
+
+
+
+3. Flow Control - Branches:
+- Mit branches wie if-else/case kann der Flow gesteuert werden
+
+- Case:
+	- Case Switches sind verknuepfte If else statements
+	- Die Statements werden immer mit ;; beendet
+	- Beispiel
+		case $opt in
+			"1") network_range ;;
+			"2") ping_host ;;
+			"3") network_range && ping_host ;;
+			"*") exit 0 ;;
+		esac
+
+##############################################################################################
+Execution Flow:
+1. Functions:
+- Fuer groessere Scripts koennen Funktionen eingesetzt werden
+- Beispiel:
+	function name {
+		<commands>
+	}
+
+- function kann auch weggelassen werden:
+	name() {
+		<commands>
+	}
+
+- Die Funktion wird ohne () aufgerufen
+
+- Parameter Passing:
+	- Parameter koennen bei Funktionsaufruf mit "$Wert" mitgegeben werden
+	- print_pars "$one" "$two" "$three"
+	- In der Funktion koennen die Parameter mit $1,$2, ... verwendet werden
+
+- Return Values:
+	- Eine Funktion gibt einen Code return code zurueck
+
+2. Debugging:
+- 
+
+
