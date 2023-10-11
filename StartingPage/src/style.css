@@ -1,0 +1,435 @@
+*{   
+    outline: none;
+}
+
+
+/* Change the white to any color */
+#inputsearch:-webkit-autofill{
+    -webkit-background-clip: text;
+}
+
+/*  Background  */
+
+html{
+    height: 100%;
+    width: 100%;
+}
+
+body{
+    height: 100%;
+    margin: 0;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    /*
+    background: rgb(100, 65, 165);
+    */
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 13px;
+}
+
+#firstpartbackground{
+    position: fixed;
+    top: 0px;
+    width: 100%;
+    height: 50%;
+    z-index: 0;
+}
+#secondpartbackground{
+    position: fixed;
+    top: 50%;
+    width: 100%;
+    height: 25%;
+    z-index: 0;
+}
+#thirdpartbackground{
+    position: fixed;
+    top: 75%;
+    width: 100%;
+    height: 15%;
+    z-index: 0;
+}
+
+#fourthpartbackground{
+    position: fixed;
+    top: 90%;
+    width: 100%;
+    height: 10%;
+    z-index: 0;
+}
+
+
+.body > *:not(#shortcutsettings, #shortcutboxinput, #shortcutboxchange ){ 
+    filter: blur(5px);
+}
+
+/*  Timefield  */
+#time{
+    text-align: center;
+    color: white;
+    font-size: 50px;
+}
+
+#date{
+    text-align: center;
+    color: white;
+    font-size: 20px;
+}
+
+
+/*  Searchfield  */
+#searchwrapper{
+    background: rgba(243, 226, 226, 0.7);
+    border-radius: 10px;
+    width: 100%;
+}
+
+#searchinput{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    width: inherit;
+}
+
+#inputsearch{
+    display: table-cell;
+    font-size: 25px;
+    width: 90%;
+    color: #252525;
+    border: 0;
+    background-color: transparent;
+}
+
+
+
+
+
+/*  Search-icon  */
+#searchbutton{
+    display: table-cell;
+    vertical-align: middle;
+    color: #252525;
+    font-size: 20px;
+    text-align: center;
+    padding: 10px;
+    background-color: transparent;
+    border: none;
+}
+
+
+/*  Shortcut  */
+.shortcutbox{
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    border-radius: 10px;
+    border-style: none;
+    width: 8em;
+    height: 8em;
+}
+
+
+
+.shortcutbox:hover, .shortcutbox:focus{
+    background: rgba(243, 226, 226, 0.4);
+}
+
+
+.shortcutlinkwrapper{
+    width: 70%;
+    height: 70%;
+    border-radius: 10px;
+    border-style: none;
+    background-color: white;
+    text-decoration: none;
+}
+
+.penbutton{
+    visibility: hidden;
+    transform: translate(22px, -70px);
+    border: none;
+    border-radius: 25px;
+    background-color: transparent;
+    height: 20px;
+    width: 20px;
+    padding: 0px;
+}
+
+.shortcutbox > * .penbutton:hover{
+    visibility: visible;
+}
+
+.shortcutbox > * > * > i{
+    color: transparent;
+    /*
+    color: rgba(23, 22, 26, 0.8) !important;
+     color: black !important; 
+     */
+}
+
+.shortcutbox:hover > * > * > i{
+    color: #252525 !important;
+    visibility: visible;
+    /*
+    color: rgba(23, 22, 26, 0.8) !important;
+     color: black !important; 
+     */
+}
+
+.penbutton:hover{
+    background-color: rgba(215,212,220,1);
+}
+
+.shortcutlink{
+    border-radius: 10px;
+    border-style: none;
+    background-color: white;
+    width: 100%;
+    height: 100%;
+}
+
+
+.shortcuticon{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    font-size: 20px;
+    background-size: 35%;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+
+.shortcutunder{
+    padding-top: 4px;
+    text-align: center;
+    font-weight: bold;
+    color: rgb(239, 239, 239);
+}
+
+
+
+/*  Shortcut Input  */
+.shortcutinputdiv{
+    position: absolute;
+    top: 311px;
+    left: 50%;
+    margin: 0 0 0 -200px;
+    width: 380px;
+    height: 300px;
+
+    border-radius: 10px;
+    border-style: none;
+    z-index: 2;
+    /*
+    background-color: rgba(166, 166, 166, 1);
+    */
+    background-color: rgba(215,212,220,0.95);
+}
+
+.shortcutinputdiv > div{
+    place-self: center;
+}
+  
+.shortcutinputdiv > * > label{
+    display: block;
+    margin-bottom: 5px;
+    font-size: 18px;
+}
+
+.shortcutinputdiv > * > input{
+    padding: 10px;
+    font-size: 18px;
+    border-radius: 10px;
+    border-style: none;
+}
+
+.shortcutinputdiv > div:nth-child(3){
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    gap: 5px;
+}
+
+.shortcutinputdiv > * > button{
+    box-sizing: border-box;
+    padding: 10px;
+    font-size: 18px;
+    border-radius: 20px;
+    border-style: none;
+    color: rgb(239, 239, 239);
+}
+
+.shortcutinputdiv > * > button:hover{
+    opacity: 0.8;
+}
+
+#cancelinput{
+    background-color: #555;
+    width: 115px;
+}
+
+#createinput{
+    background-color: #1a82f7;
+    width: 115px;
+}
+
+#cancelchange{
+    background-color: #555;
+    width: 82px;
+}
+
+#deletechange{
+    background-color: red;
+    width: 82px;
+}
+
+#changechange{
+    background-color: #1a82f7;
+    width: 82px;
+}
+
+#settingsbutton:hover{
+    background-color: rgba(215,212,220,0.4);
+}
+
+#settingsbutton{
+    border-radius: 10px;
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    padding: 10px;
+    margin: 20px;
+    background-color: transparent;
+    border: none;
+    color: white;
+    font-size: 25px;
+    z-index: 1;
+}
+
+
+/* shortcutsettings */
+#shortcutsettings{
+    z-index: 2;
+    border-radius: 10px;
+    background-color: rgba(215,212,220,0.7);
+    position: absolute;
+    top: 15%;
+    right: 0px;
+    margin: 20px;
+    height: 510px;   
+    width: 250px;
+    padding: 10px;
+}
+
+
+#shortcutsettings > div{
+    justify-self: center;
+    align-self: center;
+    border-radius: 20px;
+    background-color: rgba(228, 223, 238, 0.7);
+    box-shadow: -5px 8px 20px 2px rgba(25,25,25,0.60);
+}
+
+#shortcutsettings > div > h3{
+    border-bottom: 1px solid #252525;
+    text-align: center;
+    padding-bottom: 2px;
+}
+
+.labelcolor{
+    font-size: 15px;
+    font-weight: 500;
+}
+
+
+#backgroundcolor{
+    height: 130px;
+    width: 90%;
+}
+
+#backgroundcolor > div > div{
+    display: flex;
+    flex-direction: column;
+
+    align-self: center;
+    align-items: center;
+}
+
+#backgroundcolorgradient{
+    height: 300px;
+    width: 90%;
+}
+
+#backgroundcolorgradient > div{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    row-gap: 10px;
+}
+
+#backgroundcolorgradient > div > div{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#backgroundcolorgradient > div > div > form{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#backgroundcolorgradient > div > div > form > div{
+    display: flex;
+    flex-direction: row;
+}
+
+
+#backgroundcolorgradient > div > div > form > div > input[type="number"]{
+    width: 44px;
+}
+
+
+#closesettings{
+    box-sizing: border-box;
+    width: 90%;
+    padding: 10px;
+    font-size: 18px;
+    border-radius: 20px;
+    border-style: none;
+    color: rgb(239, 239, 239);
+    background-color: #1a82f7;
+    justify-self: center;
+    align-self: center;
+}
+
+#closesettings:hover{
+    opacity: 0.8;
+}
+
+.colorfield:hover{
+    border-style: solid;
+    border-color: rgba(26, 130, 247, 0.6);
+}
+
+.selectcolorfield{
+    border-style: solid;
+    border-color: rgba(26, 130, 247, 1) !important;
+}
+
+
+input[type=color]{
+    background-color: transparent;
+    height: 30px;
+    width: 30px;
+    border: none;
+    cursor: pointer;
+}
+
+input[type=color]::-webkit-color-swatch{
+    border-radius: 5px;
+}

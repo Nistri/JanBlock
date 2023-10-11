@@ -1,0 +1,125 @@
+<!DOCTYPE HTML>
+<html>
+    <head>
+        <title>new Tab</title> 
+        <link rel="stylesheet" href="style.css">
+        <link rel="stylesheet" href="grid.css">
+        <link rel="stylesheet" href="/src/fontawesome/css/all.min.css">
+    </head>
+    <body>
+        <div id="firstpartbackground"></div>
+        <div id="secondpartbackground"></div>
+        <div id="thirdpartbackground"></div>
+        <div id="fourthpartbackground"></div>
+        <div>
+            <button id="settingsbutton">
+                <i class="fa-solid fa-sliders"></i>
+            </button>
+        </div>
+
+        <div id="shortcutsettings" style="visibility: hidden;">
+            <div id="backgroundcolor" class="colorfield">
+                <h3>Plain Background</h3>
+                <div>
+                    <div>
+                        <label class="labelcolor" for="background">Color</label>
+                        <input type="color" id="staticcolor" name="background" value="#6441A5">
+                    </div>
+                </div>
+            </div>
+
+            <div id="backgroundcolorgradient" class="colorfield">
+                <h3>Split Background</h3>
+                <div>
+                    <div>
+                        <label class="labelcolor" for="firstgradientcolor">First Color</label>
+                        <input type="color" id="firstgradientcolor" name="firstgradientcolor" value="#E14D2A">
+                    </div>
+                    <div>
+                        <label class="labelcolor" for="secondgradientcolor">Second Color</label>
+                        <input type="color" id="secondgradientcolor" name="secondgradientcolor" value="#FD841F">
+                    </div>
+                    <div>
+                        <label class="labelcolor" for="thirdgradientcolor">Third Color</label>
+                        <input type="color" id="thirdgradientcolor" name="thirdgradientcolor" value="#3E6D9C">
+                    </div>
+                    <div>
+                        <label class="labelcolor" for="fourthgradientcolor">Fourth Color</label>
+                        <input type="color" id="fourthgradientcolor" name="thirdgradientcolor" value="#001253">
+                    </div>
+                </div>
+            </div>
+
+            <button id="closesettings">Close</button>
+        </div>
+        
+        <form class="shortcutinputdiv" id="shortcutboxinput" style="visibility: hidden;">
+            <div>
+                <label for="name">Name</label>
+                <input type="text" id="name" placeholder="Shortcut Name" required="true">
+            </div>
+            <div>
+                <label for="link">Link</label>
+                <input type="text" id="link" placeholder="www.example.com" required="true">
+            </div>
+            <div>
+                <button id="cancelinput" type="button">
+                    Cancel
+                </button>
+                <button id="createinput" type="submit">
+                    Create
+                </button>
+            </div>
+        </form>
+        
+        <form class="shortcutinputdiv" id="shortcutboxchange" style="visibility: hidden;">
+            <div>
+                <label for="name">Name</label>
+                <input name="name" type="text" id="namechange" placeholder="Shortcut Name" required="true">
+            </div>
+            <div>
+                <label for="link">Link</label>
+                <input name="link" type="text" id="linkchange" placeholder="www.example.com" required="true">
+            </div>
+            <div>
+                <button id="cancelchange" type="button">
+                    Cancel
+                </button>
+                <button id="changechange" type="submit">
+                    Change
+                </button>
+                <button id="deletechange" type="button">
+                    Delete
+                </button>
+            </div>
+        </form>
+        
+        <div id="wrapper">
+
+            <div id="timewrapper">
+                <div id="time"></div>
+                <div id="date"></div>
+            </div>
+
+            <div id="searchwrapper">
+                <form id="searchinput">
+                    <button id="searchbutton">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </button>
+                    <input autofocus autocomplete="on" id="inputsearch" placeholder="Search the web" type="text" required="true">
+                </form>  
+            </div>
+            <div id="shortcutboxwrapper">
+                <center class="shortcutbox">
+                    <div class="shortcutlinkwrapper">
+                        <button class="shortcutlink" id="add">
+                            <div class="shortcuticon">+</div>
+                        </button>
+                    </div>
+                    <div class="shortcutunder">Add Shortcut</div>
+                </center>
+            </div>
+        </div>
+    </body>
+    <script src="script.js"></script>
+</html>
